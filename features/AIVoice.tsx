@@ -350,6 +350,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
   };
 
   const [isCheckingUsage, setIsCheckingUsage] = useState(false);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
 
   const checkApiKey = () => {
     if (session.useCustomKey) {
@@ -558,12 +559,15 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
       audioRef.current.src = url;
       setIsPlaying(true);
       try {
-        await audioRef.current.play();
+        playPromiseRef.current = audioRef.current.play();
+        await playPromiseRef.current;
       } catch (error: any) {
         if (error.name !== 'AbortError') {
           console.error('Audio playback failed:', error);
           setIsPlaying(false);
         }
+      } finally {
+        playPromiseRef.current = null;
       }
     }
   };
@@ -571,17 +575,25 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
   const handlePlayPause = async () => {
     if (audioRef.current) {
       if (isPlaying) {
+        if (playPromiseRef.current) {
+          try {
+            await playPromiseRef.current;
+          } catch (e) {}
+        }
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
         setIsPlaying(true);
         try {
-          await audioRef.current.play();
+          playPromiseRef.current = audioRef.current.play();
+          await playPromiseRef.current;
         } catch (error: any) {
           if (error.name !== 'AbortError') {
             console.error('Audio playback failed:', error);
             setIsPlaying(false);
           }
+        } finally {
+          playPromiseRef.current = null;
         }
       }
     }
@@ -634,6 +646,11 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
     const previewId = `kc_${charValue}`;
     if (isPreviewing === previewId) {
       if (audioRef.current && isPlaying) {
+        if (playPromiseRef.current) {
+          try {
+            await playPromiseRef.current;
+          } catch (e) {}
+        }
         audioRef.current.pause();
         setIsPlaying(false);
       }
@@ -988,11 +1005,12 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
             </div>
 
             <div className="space-y-4">
-              <Input
+              <TextArea
                 label="Style Instruction"
                 value={styleInstruction}
                 onChange={setStyleInstruction}
                 placeholder="e.g. Read aloud in a warm and friendly tone: "
+                rows={3}
               />
               
               <div className="space-y-4">
@@ -1055,7 +1073,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                     value={text}
                     onChange={setText}
                     placeholder="Enter the text you want the AI to read..."
-                    rows={6}
+                    rows={12}
                   />
                 )}
               </div>
@@ -1140,7 +1158,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                 value={kcText}
                 onChange={setKcText}
                 placeholder="Enter text for KC Voice..."
-                rows={4}
+                rows={12}
               />
               <div className={`grid gap-4 ${kcMode === 'multi' ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
                 {/* Character 1 */}

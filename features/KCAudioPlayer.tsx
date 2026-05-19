@@ -14,6 +14,7 @@ export const KCAudioPlayer: React.FC<KCAudioPlayerProps> = ({ audioUrl, srtUrl, 
   const [duration, setDuration] = useState(0);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
 
   const [fileSize, setFileSize] = useState<string | null>(null);
   const [srtFileSize, setSrtFileSize] = useState<string | null>(null);
@@ -82,14 +83,30 @@ export const KCAudioPlayer: React.FC<KCAudioPlayerProps> = ({ audioUrl, srtUrl, 
     };
   }, [audioUrl]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!audioRef.current) return;
     if (isPlaying) {
+      if (playPromiseRef.current) {
+        try {
+          await playPromiseRef.current;
+        } catch (e) {}
+      }
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play();
+      setIsPlaying(true);
+      try {
+        playPromiseRef.current = audioRef.current.play();
+        await playPromiseRef.current;
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Playback failed:', error);
+          setIsPlaying(false);
+        }
+      } finally {
+        playPromiseRef.current = null;
+      }
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {

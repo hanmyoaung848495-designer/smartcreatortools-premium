@@ -12,6 +12,7 @@ export const GeminiAudioPlayer: React.FC<GeminiAudioPlayerProps> = ({ audioUrl, 
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playPromiseRef = useRef<Promise<void> | null>(null);
 
   const handleDownload = (format: 'wav' | 'mp3') => {
     // For now, since Gemini only provides WAV-like blob, 
@@ -40,11 +41,30 @@ export const GeminiAudioPlayer: React.FC<GeminiAudioPlayerProps> = ({ audioUrl, 
     };
   }, [audioUrl]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!audioRef.current) return;
-    if (isPlaying) audioRef.current.pause();
-    else audioRef.current.play();
-    setIsPlaying(!isPlaying);
+    if (isPlaying) {
+      if (playPromiseRef.current) {
+        try {
+          await playPromiseRef.current;
+        } catch (e) {}
+      }
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+      try {
+        playPromiseRef.current = audioRef.current.play();
+        await playPromiseRef.current;
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Playback failed:', error);
+          setIsPlaying(false);
+        }
+      } finally {
+        playPromiseRef.current = null;
+      }
+    }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -632,6 +632,7 @@ const App: React.FC = () => {
 
       <Modal
         isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
         title={<span className="bg-gradient-to-r from-yellow-500 via-red-500 to-pink-500 bg-clip-text text-transparent">System Login</span>}
         maxWidth="max-w-sm"
         hideClose={true}

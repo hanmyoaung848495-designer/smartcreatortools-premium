@@ -358,57 +358,126 @@ app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
   });
 });
 
-app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
-  const appUrl = process.env.APP_URL; 
-  if (!appUrl) {
-    return res.status(500).json({ error: "APP_URL is not configured" });
+app.get(/^\/(api\/)?kc-tts\/proxy$/, async (req, res) => {
+  const url = req.query.url as string;
+  if (!url) return res.status(400).json({ error: "URL is required" });
+
+  try {
+    console.log(`[KC TTS Proxy] Fetching: ${url}`);
+    const response = await fetch(url);
+    if (!response.ok) {
+        return res.status(response.status).send(`Failed to fetch remote audio: ${response.statusText}`);
+    }
+
+    // Set correct Content-Type from upstream or fallback
+    const contentType = response.headers.get('Content-Type');
+    console.log(`[KC TTS Proxy] Received Content-Type: ${contentType}, Status: ${response.status}`);
+    res.setHeader('Content-Type', contentType || 'audio/wav');
+    
+    // Add cache control to avoid re-fetching the same audio
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+
+    const contentLength = response.headers.get('Content-Length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    if (contentType?.includes('html') || buffer.toString('utf8', 0, 10).includes('<!doctype')) {
+        console.warn(`[KC TTS Proxy] Warning: Received HTML instead of audio! URL: ${url}`);
+        console.warn(`[KC TTS Proxy] HTML start: ${buffer.toString('utf8', 0, 200)}`);
+    }
+    
+    res.send(buffer);
+  } catch (error) {
+    console.error("[KC TTS Proxy] Error:", error);
+    res.status(500).json({ error: String(error) });
   }
+});
+
+app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
+  const primaryBaseUrl = process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL || 'https://thantzinmin-my-tts-api.hf.space';
+  const secondaryBaseUrl = 'https://thantzinmin-kc-tts-api.hf.space';
+  
+  const baseUrlsToTry = [primaryBaseUrl];
+  if (primaryBaseUrl !== secondaryBaseUrl) baseUrlsToTry.push(secondaryBaseUrl);
 
   const keys = getRotatingApiKey('TTS_API_KEY');
-  // Fallback to one key if none found via rotation helper
   if (keys.length === 0 && process.env.TTS_API_KEY) keys.push(process.env.TTS_API_KEY);
 
   let lastError: any;
-  for (const apiKey of keys) {
-    try {
-      const apiUrl = `${appUrl}/generate`;
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey || ""
-        },
-        body: JSON.stringify(req.body)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 429 || response.status === 402) {
-          console.warn(`[KC TTS] Key failed with status ${response.status}. Trying next key...`);
-          lastError = { status: response.status, message: errorText };
-          continue;
-        }
-        return res.status(response.status).send(errorText);
-      }
-
-      const data = await response.json();
+  
+  for (const ttsBaseUrl of baseUrlsToTry) {
+    for (const apiKey of keys) {
+      const pathsToTry = ['/generate', '/api/generate', ''];
       
-      if (data.audio_url && data.audio_url.startsWith('/')) {
-        data.audio_url = `${appUrl}${data.audio_url}`;
-      }
-      if (data.srt_url && data.srt_url.startsWith('/')) {
-        data.srt_url = `${appUrl}${data.srt_url}`;
-      }
+      for (const path of pathsToTry) {
+          let apiUrl = ttsBaseUrl.endsWith('/') ? `${ttsBaseUrl}${path.replace(/^\//, '')}` : `${ttsBaseUrl}${path}`;
+          if (ttsBaseUrl.includes('/generate') && path !== '') continue;
+          
+          try {
+            console.log(`[KC TTS] Attempting generate at: ${apiUrl}`);
+            const response = await fetch(apiUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-API-Key": apiKey || ""
+              },
+              body: JSON.stringify(req.body)
+            });
+      
+            const responseText = await response.text();
+            
+            if (!response.ok) {
+              console.error(`[KC TTS] API returned ${response.status} at ${apiUrl}: ${responseText.slice(0, 100)}`);
+              if (response.status === 404) continue;
+              
+              if (response.status === 429 || response.status === 402) {
+                console.warn(`[KC TTS] Key failed with status ${response.status}. Trying next key...`);
+                lastError = { status: response.status, message: responseText };
+                break; // Try next apiKey or baseUrl
+              }
+              continue; // Try next path or baseUrl
+            }
+      
+            try {
+              const data = JSON.parse(responseText);
+              
+              const transformUrl = (rawUrl: string) => {
+                if (!rawUrl) return rawUrl;
+                let fullUrl = rawUrl;
+                if (!fullUrl.startsWith('http')) {
+                  const base = ttsBaseUrl.endsWith('/') ? ttsBaseUrl : `${ttsBaseUrl}/`;
+                  const cleanPath = fullUrl.startsWith('/') ? fullUrl.slice(1) : fullUrl;
+                  fullUrl = `${base}${cleanPath}`;
+                }
+                return `/api/kc-tts/proxy?url=${encodeURIComponent(fullUrl)}`;
+              };
 
-      return res.json(data);
-    } catch (error) {
-      console.error("[KC TTS] Error with current key:", error);
-      lastError = error;
+              if (data.audio_url) data.audio_url = transformUrl(data.audio_url);
+              if (data.srt_url) data.srt_url = transformUrl(data.srt_url);
+      
+              return res.json(data);
+            } catch (parseError) {
+              if (responseText.includes('<!doctype') || responseText.includes('<html')) {
+                  console.warn(`[KC TTS] HTML response from ${apiUrl}, trying next path...`);
+                  continue;
+              }
+              console.error(`[KC TTS] Failed to parse JSON response from ${apiUrl}. First 200 chars: ${responseText.slice(0, 200)}`);
+              lastError = new Error(`Invalid JSON response from TTS API: ${responseText.slice(0, 100)}`);
+              continue;
+            }
+          } catch (error) {
+            console.error(`[KC TTS] Connection error at ${apiUrl}:`, error);
+            lastError = error;
+          }
+      }
+      if (res.headersSent) return;
     }
   }
 
   return res.status(500).json({ 
-    error: lastError?.message || "All TTS_API_KEYs failed or reached quota." 
+    error: lastError?.message || "All TTS API variants and keys failed or reached quota. Please check KC_TTS_API_URL." 
   });
 });
 
