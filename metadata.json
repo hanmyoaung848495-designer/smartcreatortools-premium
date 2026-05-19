@@ -1,0 +1,8 @@
+{
+  "name": "Smart Creator Tools Premium ",
+  "description": "A comprehensive AI-powered platform for content creators, featuring transcription, translation, subtitle generation, AI script writing, video generation, and multi-platform content creation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" class="no-scrollbar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link id="apple-touch-icon" rel="apple-touch-icon" href="/icon.svg">
+    <title>Smart Creator Tools - AI Tools For Creator</title>
+    <link id="favicon" rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32'><rect width='32' height='32' rx='10' fill='white'/><rect x='4' y='4' width='24' height='24' rx='8' fill='%231877F2'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='bold' font-size='16' fill='%23FFD700'>$</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      (function() {
+        const customLogoUrl = '/logo.png';
+        const img = new Image();
+        img.onload = function() {
+          document.getElementById('favicon').href = customLogoUrl;
+          document.getElementById('apple-touch-icon').href = customLogoUrl;
+          const splashIcon = document.getElementById('splash-icon-inner');
+          if (splashIcon) {
+            splashIcon.outerHTML = '<img src="' + customLogoUrl + '" alt="App Logo" style="width: 100%; height: 100%; object-fit: cover;" />';
+          }
+        };
+        img.src = customLogoUrl;
+      })();
+    </script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans Myanmar', sans-serif; }
+        .marquee {
+            display: flex;
+            overflow: hidden;
+            user-select: none;
+            gap: 2rem;
+        }
+        .marquee-content {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-around;
+            min-width: 100%;
+            gap: 2rem;
+            animation: scroll 40s linear infinite;
+        }
+        @keyframes scroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-100%); }
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .subtle-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .subtle-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .subtle-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+        .subtle-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .subtle-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes gradient-border-rotate {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes spinning-border {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .animate-gradient-border-premium::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            z-index: -1;
+            background: conic-gradient(from 0deg, #eab308, #22c55e, #ef4444, #eab308);
+            border-radius: inherit;
+            animation: spinning-border 3s linear infinite;
+        }
+
+        .animate-gradient-border {
+            background-size: 200% 200%;
+            animation: gradient-border-rotate 3s linear infinite;
+        }
+
+        .tool-card-gradient {
+            position: relative;
+            background: white;
+            background-clip: padding-box;
+            border: 2px solid transparent !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .dark .tool-card-gradient {
+            background: #1f2937;
+        }
+
+        .tool-card-gradient::before {
+            content: "";
+            position: absolute;
+            inset: -400% -400%;
+            z-index: -1;
+            background: conic-gradient(
+                from 0deg,
+                transparent,
+                #6366f1,
+                #a855f7,
+                #ec4899,
+                transparent 60%
+            );
+            opacity: 0.1;
+            animation: spinning-border 4s linear infinite;
+            transition: opacity 0.3s ease;
+        }
+
+        .tool-card-gradient:hover::before {
+            opacity: 1;
+        }
+
+        .tool-card-gradient-active::before {
+            opacity: 1 !important;
+            background: conic-gradient(
+                from 0deg,
+                #4f46e5,
+                #9333ea,
+                #db2777,
+                #4f46e5
+            );
+        }
+
+        .tool-card-gradient:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.2);
+        }
+
+        .tool-btn-gradient {
+            position: relative;
+            background: white;
+            background-clip: padding-box;
+            border: 1px solid transparent !important;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+
+        .dark .tool-btn-gradient {
+            background: #374151;
+        }
+
+        .tool-btn-gradient::before {
+            content: "";
+            position: absolute;
+            inset: -300% -300%;
+            z-index: -1;
+            background: conic-gradient(
+                from 0deg,
+                transparent,
+                #6366f1,
+                transparent 40%
+            );
+            opacity: 0.1;
+            animation: spinning-border 3s linear infinite;
+            transition: opacity 0.2s ease;
+        }
+
+        .tool-btn-gradient-active::before {
+            opacity: 1 !important;
+            background: conic-gradient(
+                from 0deg,
+                #4f46e5,
+                #db2777,
+                #4f46e5
+            );
+        }
+
+        .tool-btn-gradient:hover::before {
+            opacity: 0.6;
+        }
+    </style>
+    <script>
+      (function() {
+        const saved = localStorage.getItem('theme');
+        const isDark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          const loader = document.getElementById('initial-loader');
+          if (loader) {
+            loader.style.backgroundColor = '#0f172a';
+            loader.querySelector('h1').style.color = '#f8fafc';
+            const iconBox = loader.querySelector('div:first-child');
+            if (iconBox) {
+              iconBox.style.backgroundColor = '#1e293b';
+              iconBox.style.borderColor = '#334155';
+            }
+          }
+        }
+      })();
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 no-scrollbar">
+    <div id="root">
+        <div id="initial-loader" style="position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #f8fafc; z-index: 9999; font-family: 'Inter', sans-serif;">
+            <div style="width: 80px; height: 80px; border-radius: 20px; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); border: 1px solid #e2e8f0;">
+                <div id="splash-icon-inner" style="width: 100%; height: 100%; background-color: #1877F2; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-weight: 900; font-size: 36px; color: #FFD700; line-height: 1;">$</span>
+                </div>
+            </div>
+            <h1 style="margin-top: 20px; font-weight: 900; font-size: 28px; color: #0f172a; letter-spacing: -0.05em;">Smart Creator Tools</h1>
+            <div style="margin-top: 4px; text-align: center;">
+                <p style="margin: 0; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.2em;">Designed and Developed</p>
+                <p style="margin: 0; font-size: 12px; font-weight: 900; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.1em;">By KC Team</p>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 4px;">
+                <div class="dot" style="width: 8px; height: 8px; background-color: #4f46e5; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both;"></div>
+                <div class="dot" style="width: 8px; height: 8px; background-color: #4f46e5; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.32s;"></div>
+                <div class="dot" style="width: 8px; height: 8px; background-color: #4f46e5; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; animation-delay: -0.16s;"></div>
+            </div>
+            <style>
+                @keyframes bounce {
+                    0%, 80%, 100% { transform: scale(0); }
+                    40% { transform: scale(1.0); }
+                }
+                @media (prefers-color-scheme: dark) {
+                    #initial-loader { background-color: #0f172a !important; }
+                    #initial-loader h1 { color: #f8fafc !important; }
+                    #initial-loader > div:first-child { background-color: #1e293b !important; border-color: #334155 !important; }
+                }
+            </style>
+        </div>
+    </div>
+    <script>
+      // Fallback: remove loader after 5 seconds even if React fails
+      setTimeout(() => {
+        const loader = document.getElementById('initial-loader');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => loader.remove(), 500);
+        }
+      }, 5000);
+    </script>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
