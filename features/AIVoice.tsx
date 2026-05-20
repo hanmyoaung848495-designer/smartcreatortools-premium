@@ -346,7 +346,11 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
 
   const saveHistory = async (newHistory: VoiceHistory[]) => {
     setHistory(newHistory);
-    await saveVoiceHistoryDB(newHistory);
+    try {
+      await saveVoiceHistoryDB(newHistory);
+    } catch (dbError) {
+      console.error("Failed to save voice history to IndexedDB:", dbError);
+    }
   };
 
   const [isCheckingUsage, setIsCheckingUsage] = useState(false);

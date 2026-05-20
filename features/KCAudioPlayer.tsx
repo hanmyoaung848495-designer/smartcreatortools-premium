@@ -1,6 +1,84 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Download, Trash2 } from 'lucide-react';
 
+const writeString = (view: DataView, offset: number, string: string) => {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+};
+
+const floatTo16BitPCM = (output: DataView, offset: number, input: Float32Array) => {
+  for (let i = 0; i < input.length; i++, offset += 2) {
+    let s = Math.max(-1, Math.min(1, input[i]));
+    output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+};
+
+const interleave = (inputL: Float32Array, inputR: Float32Array): Float32Array => {
+  const length = inputL.length + inputR.length;
+  const result = new Float32Array(length);
+  
+  let index = 0;
+  let inputIndex = 0;
+  
+  while (index < length) {
+    result[index++] = inputL[inputIndex];
+    result[index++] = inputR[inputIndex];
+    inputIndex++;
+  }
+  return result;
+};
+
+const bufferToWav = (buffer: AudioBuffer): Blob => {
+  const numOfChan = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // 1 = Raw PCM (16-bit integers)
+  const bitDepth = 16;
+  
+  let result;
+  if (numOfChan === 2) {
+    result = interleave(buffer.getChannelData(0), buffer.getChannelData(1));
+  } else {
+    result = buffer.getChannelData(0);
+  }
+  
+  const bufferLength = result.length * 2;
+  const arrayBuffer = new ArrayBuffer(44 + bufferLength);
+  const view = new DataView(arrayBuffer);
+  
+  /* RIFF identifier */
+  writeString(view, 0, 'RIFF');
+  /* file length */
+  view.setUint32(4, 36 + bufferLength, true);
+  /* RIFF type */
+  writeString(view, 8, 'WAVE');
+  /* format chunk identifier */
+  writeString(view, 12, 'fmt ');
+  /* format chunk length */
+  view.setUint32(16, 16, true);
+  /* sample format (raw) */
+  view.setUint16(20, format, true);
+  /* channel count */
+  view.setUint16(22, numOfChan, true);
+  /* sample rate */
+  view.setUint32(24, sampleRate, true);
+  /* byte rate (sample rate * block align) */
+  view.setUint32(28, sampleRate * numOfChan * (bitDepth / 8), true);
+  /* block align (channel count * bytes per sample) */
+  view.setUint16(32, numOfChan * (bitDepth / 8), true);
+  /* bits per sample */
+  view.setUint16(34, bitDepth, true);
+  /* data chunk identifier */
+  writeString(view, 36, 'data');
+  /* data chunk length */
+  view.setUint32(40, bufferLength, true);
+  
+  // Write the PCM audio samples
+  floatTo16BitPCM(view, 44, result);
+  
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+};
+
 interface KCAudioPlayerProps {
   audioUrl: string;
   srtUrl: string;
@@ -22,9 +100,35 @@ export const KCAudioPlayer: React.FC<KCAudioPlayerProps> = ({ audioUrl, srtUrl, 
   const handleDownload = async (url: string, extension: string) => {
     try {
       setIsDownloading(extension);
-      const name = fileName || 'KC_Voice';
-      const response = await fetch(url);
-      const blob = await response.blob();
+      let name = fileName || 'KC_Voice';
+      if (name.toLowerCase().endsWith('.wav')) {
+        name = name.slice(0, -4);
+      } else if (name.toLowerCase().endsWith('.mp3')) {
+        name = name.slice(0, -4);
+      }
+
+      let blob: Blob;
+
+      if (extension === 'wav') {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        
+        // Use AudioContext to decode MP3 to AudioBuffer
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) {
+          throw new Error("Web Audio API is not supported in this browser");
+        }
+        const audioCtx = new AudioContextClass();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        // Convert AudioBuffer to WAV format Blob
+        blob = bufferToWav(audioBuffer);
+        await audioCtx.close();
+      } else {
+        const response = await fetch(url);
+        blob = await response.blob();
+      }
+
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -44,44 +148,76 @@ export const KCAudioPlayer: React.FC<KCAudioPlayerProps> = ({ audioUrl, srtUrl, 
     const audio = audioRef.current;
     if (!audio) return;
     
-    // Helper to format bytes
+    // Helper to format bytes safely
     const formatBytes = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const dm = 2;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        if (!bytes || isNaN(bytes) || bytes <= 0) return '0 Bytes';
+        try {
+          const k = 1024;
+          const dm = 2;
+          const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          if (isNaN(i) || i < 0 || i >= sizes.length) return '0 Bytes';
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        } catch (e) {
+          return '0 Bytes';
+        }
     };
 
-    // Fetch size
-    fetch(audioUrl, { method: 'HEAD' }).then(res => {
-        const size = res.headers.get('content-length');
-        if (size) setFileSize(formatBytes(parseInt(size)));
-    }).catch(e => console.error("Could not fetch file size", e));
+    let isSubscribed = true;
 
-    // Fetch SRT size
-    fetch(srtUrl, { method: 'HEAD' }).then(res => {
-        const size = res.headers.get('content-length');
-        if (size) setSrtFileSize(formatBytes(parseInt(size)));
-    }).catch(e => console.error("Could not fetch srt size", e));
+    // Fetch size safely
+    if (audioUrl && typeof audioUrl === 'string' && !audioUrl.includes('undefined') && audioUrl.trim().length > 0) {
+      fetch(audioUrl, { method: 'HEAD' }).then(res => {
+          if (!isSubscribed) return;
+          if (res.ok) {
+            const size = res.headers.get('content-length');
+            if (size) {
+              const parsed = parseInt(size);
+              if (!isNaN(parsed) && parsed > 0) {
+                setFileSize(formatBytes(parsed));
+              }
+            }
+          }
+      }).catch(e => console.warn("Could not fetch file size info", e));
+    }
+
+    // Fetch SRT size safely
+    if (srtUrl && typeof srtUrl === 'string' && !srtUrl.includes('undefined') && srtUrl.trim().length > 0) {
+      fetch(srtUrl, { method: 'HEAD' }).then(res => {
+          if (!isSubscribed) return;
+          if (res.ok) {
+            const size = res.headers.get('content-length');
+            if (size) {
+              const parsed = parseInt(size);
+              if (!isNaN(parsed) && parsed > 0) {
+                setSrtFileSize(formatBytes(parsed));
+              }
+            }
+          }
+      }).catch(e => console.warn("Could not fetch srt size info", e));
+    }
 
     const updateProgress = () => {
-      setProgress(audio.currentTime);
+      if (isSubscribed) {
+        setProgress(audio.currentTime);
+      }
     };
 
     const updateDuration = () => {
-      setDuration(audio.duration);
+      if (isSubscribed) {
+        setDuration(audio.duration);
+      }
     };
 
     audio.addEventListener('timeupdate', updateProgress);
     audio.addEventListener('loadedmetadata', updateDuration);
 
     return () => {
+      isSubscribed = false;
       audio.removeEventListener('timeupdate', updateProgress);
       audio.removeEventListener('loadedmetadata', updateDuration);
     };
-  }, [audioUrl]);
+  }, [audioUrl, srtUrl]);
 
   const togglePlay = async () => {
     if (!audioRef.current) return;
