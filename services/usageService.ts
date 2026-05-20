@@ -94,40 +94,69 @@ export const checkAndIncrementUsage = async (
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    // Check current usage
-    const { data, error } = await supabase
-      .from('tool_usage')
-      .select('count')
-      .eq('identifier', identifier)
-      .eq('tool_type', toolType)
-      .eq('usage_date', today)
-      .single();
+    if (toolType === 'transcribe' && isLink) {
+      const { data, error } = await supabase
+        .from('tool_usage')
+        .select('count')
+        .eq('identifier', identifier)
+        .eq('tool_type', 'link_transcribe')
+        .eq('usage_date', today)
+        .single();
 
-    const currentCount = data?.count || 0;
+      const currentCount = data?.count || 0;
 
-    if (currentCount >= limit) {
-      return { 
-        allowed: false, 
-        remaining: 0, 
-        message: `ယနေ့အတွက် အသုံးပြုနိုင်သည့် အကြိမ်ရေ (${limit} ကြိမ်) ပြည့်သွားပါပြီ။ မနက်ဖြန်မှ ထပ်မံကြိုးစားပေးပါ။` 
-      };
+      if (currentCount >= limit) {
+        return { 
+          allowed: false, 
+          remaining: 0, 
+          message: `Link ဖြင့် Subtitle Transcribe လုပ်ခွင့် ယနေ့အတွက် ကန့်သတ်ချက် (${limit} ကြိမ်) ပြည့်သွားပါပြီ။ မနက်ဖြန်မှ ထပ်မံကြိုးစားပေးပါ။` 
+        };
+      }
+
+      return { allowed: true, remaining: limit - currentCount };
     }
 
-    // Increment usage
-    const { error: upsertError } = await supabase
-      .from('tool_usage')
-      .upsert({
-        identifier,
-        tool_type: toolType,
-        usage_date: today,
-        count: currentCount + 1
-      }, { onConflict: 'identifier, tool_type, usage_date' });
-
-    if (upsertError) throw upsertError;
-
-    return { allowed: true, remaining: limit - (currentCount + 1) };
+    // Usage tracking disabled for other tools by user request to stop other analysis and database entries
+    return { allowed: true, remaining: 999 };
   } catch (e) {
     console.error('Usage check error:', e);
     return { allowed: true, remaining: 1 }; // Allow on error to avoid blocking users
+  }
+};
+
+export const incrementUsageOnly = async (
+  toolType: ToolType, 
+  userId?: string | null,
+  isLink?: boolean
+): Promise<void> => {
+  if (!supabase) return;
+  
+  if (toolType === 'transcribe' && isLink) {
+    const identifier = userId || getDeviceId();
+    const today = new Date().toISOString().split('T')[0];
+    
+    try {
+      const { data, error } = await supabase
+        .from('tool_usage')
+        .select('count')
+        .eq('identifier', identifier)
+        .eq('tool_type', 'link_transcribe')
+        .eq('usage_date', today)
+        .single();
+        
+      const currentCount = data?.count || 0;
+      
+      await supabase
+        .from('tool_usage')
+        .upsert({
+          identifier,
+          tool_type: 'link_transcribe',
+          usage_date: today,
+          count: currentCount + 1
+        }, { onConflict: 'identifier, tool_type, usage_date' });
+        
+    } catch (e) {
+      console.error('Error incrementing usage:', e);
+    }
   }
 };

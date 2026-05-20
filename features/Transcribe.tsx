@@ -168,6 +168,19 @@ const Transcribe: React.FC<Props> = ({
           content: content,
           fileName: `video_transcription.txt`
         });
+
+        // Increment usage inside database upon successful link transcription
+        try {
+          const { incrementUsageOnly } = await import('../services/usageService');
+          await incrementUsageOnly(
+            'transcribe',
+            session.role !== 'free' ? (session.user?.id || 'logged_in') : null,
+            true
+          );
+        } catch (e) {
+          console.error("Failed to increment link transcribe usage:", e);
+        }
+
         return content;
       } catch (err: any) {
         if (tasksRef.current.find(t => t.id === taskId)?.isCanceled) return;

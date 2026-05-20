@@ -783,7 +783,8 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
           console.warn('Failed to cache preview audio (storage full?)', e);
         }
         
-        // Save to Supabase for others
+        // Save to Supabase disabled by user request to stop analysis and database entry
+        /*
         if (supabase) {
           supabase.from('tts_cache').insert([
             { voice_name: voiceName, audio_data: base64Audio }
@@ -791,6 +792,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
             if (error) console.error("Failed to save to Supabase:", error);
           });
         }
+        */
 
         const wavBlob = base64PcmToWavBlob(base64Audio, 24000);
         const url = URL.createObjectURL(wavBlob);

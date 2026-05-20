@@ -24,20 +24,11 @@ import PersistentResults from './components/PersistentResults';
 import { FeedbackModal } from './components/FeedbackModal';
 
 import { Menu, X, BookOpen, User, Home as HomeIcon, Zap, Send, Sun, Moon, CheckCircle, XCircle, Eye, EyeOff, Shield, FileText, Download, Crown } from 'lucide-react';
-import { trackEvent } from './lib/analytics';
 import { Toaster, toast } from 'sonner';
 
 const App: React.FC = () => {
   const [activeFeature, setActiveFeature] = useState<FeatureType>('home');
   
-  useEffect(() => {
-    if (activeFeature !== 'home') {
-      trackEvent('view_tool', activeFeature);
-    } else {
-      trackEvent('visit', 'home');
-    }
-  }, [activeFeature]);
-
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme');
