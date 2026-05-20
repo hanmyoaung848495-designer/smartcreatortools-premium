@@ -6,6 +6,7 @@ import express from "express";
 import { botService } from '../services/botService.js';
 import TelegramBot from "node-telegram-bot-api";
 import { createClient } from "@supabase/supabase-js";
+import { hasProfanity } from "../lib/profanity.js";
 
 const app = express();
 app.use(express.json());
@@ -479,6 +480,56 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
   return res.status(500).json({ 
     error: lastError?.message || "All TTS API variants and keys failed or reached quota. Please check KC_TTS_API_URL." 
   });
+});
+
+app.post("/api/feedback", async (req, res) => {
+  const { name, contact, message, sessionId } = req.body;
+
+  if (!name || !contact || !message) {
+    return res.status(400).json({ error: "ကျေးဇူးပြု၍ အချက်အလက်အားလုံး ဖြည့်စွက်ပေးပါ" });
+  }
+
+  if (hasProfanity(name) || hasProfanity(contact) || hasProfanity(message)) {
+    return res.status(400).json({ error: "ညစ်ညမ်းစကားလုံးများ ပါဝင်နေသဖြင့် ပို့၍မရပါ။ ကျေးဇူးပြု၍ ယဉ်ကျေးစွာ ပြန်လည်ရေးသားပေးပါ။" });
+  }
+
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chat = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chat) {
+    console.error("TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID environment variable is missing.");
+    return res.status(500).json({ error: "Telegram credentials are not configured on the server." });
+  }
+
+  // Format three fields line-by-line (တစ်ကြောင်းချင်းစီ)
+  const text = `<b>Smart Creator Feedback</b>\n\n` +
+    `<b>Session ID:</b>\n<code>${sessionId || 'N/A'}</code>\n\n` +
+    `<b>Name:</b>\n<code>${name || 'Anonymous'}</code>\n\n` +
+    `<b>Telegram Acc/Phone No:</b>\n<code>${contact}</code>\n\n` +
+    `<b>Message:</b>\n<code>${message}</code>`;
+
+  try {
+    const telegramRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chat,
+        text: text,
+        parse_mode: "HTML"
+      })
+    });
+
+    if (telegramRes.ok) {
+      return res.json({ success: true });
+    } else {
+      const data = await telegramRes.json();
+      console.error("Telegram error response:", data);
+      return res.status(500).json({ error: data.description || "Telegram delivery failed" });
+    }
+  } catch (err: any) {
+    console.error("Error sending feedback to Telegram:", err);
+    return res.status(500).json({ error: `Connection to Telegram failed: ${err.message}` });
+  }
 });
 
 app.post(/^\/(api\/)?login$/, async (req, res) => {

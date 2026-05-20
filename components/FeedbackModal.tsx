@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageCircle, Send, X, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button, Card, Input } from './Shared';
+import { hasProfanity } from '../lib/profanity';
 
 export const FeedbackModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,31 +35,23 @@ export const FeedbackModal: React.FC = () => {
       return;
     }
 
+    if (hasProfanity(formData.name) || hasProfanity(formData.contact) || hasProfanity(formData.message)) {
+      setError('ညစ်ညမ်းစကားလုံးများ ပါဝင်နေသဖြင့် ပို့၍မရပါ။ ကျေးဇူးပြု၍ ယဉ်ကျေးစွာ ပြန်လည်ရေးသားပေးပါ။');
+      return;
+    }
+
     setIsSending(true);
     setError('');
 
     try {
-      const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-      const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
-
-      if (!botToken || !chatId) {
-        setError('Telegram credentials are not configured. Please add VITE_TELEGRAM_BOT_TOKEN and VITE_TELEGRAM_CHAT_ID to your environment variables.');
-        setIsSending(false);
-        return;
-      }
-
-      const text = `<b>Smart Creator Feedback Received</b>\n\n` +
-        `<b>Session ID :</b> <code>${sessionId}</code>\n` +
-        `<b>Name :</b> <code>${formData.name}</code> <b>Email/Telegram:</b> <code>${formData.contact}</code>\n` +
-        `<b>Message:</b>\n<code>${formData.message}</code>`;
-
-      const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          chat_id: chatId,
-          text: text,
-          parse_mode: 'HTML'
+          name: formData.name,
+          contact: formData.contact,
+          message: formData.message,
+          sessionId: sessionId
         })
       });
 
@@ -144,9 +137,9 @@ export const FeedbackModal: React.FC = () => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Gmail / Telegram</label>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Telegram Acc / Phone No</label>
                         <Input 
-                          placeholder="ဆက်သွယ်ရန် လိပ်စာ"
+                          placeholder="ဆက်သွယ်ရန်အကောင့်/ဖုန်းနံပါတ်"
                           value={formData.contact}
                           onChange={(val) => setFormData({ ...formData, contact: val })}
                           className="border-gray-100 text-sm py-2"
