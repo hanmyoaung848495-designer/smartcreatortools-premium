@@ -360,8 +360,21 @@ app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
 });
 
 app.get(/^\/(api\/)?kc-tts\/proxy$/, async (req, res) => {
-  const url = req.query.url as string;
+  let url = req.query.url as string;
   if (!url) return res.status(400).json({ error: "URL is required" });
+
+  try {
+    // Keep decoding as long as it contains percent signs (up to 3 times)
+    let decodeCount = 0;
+    while (url.includes('%') && decodeCount < 3) {
+      const decoded = decodeURIComponent(url);
+      if (decoded === url) break;
+      url = decoded;
+      decodeCount++;
+    }
+  } catch (e) {
+    console.error("[KC TTS Proxy] Failed to decode URL:", e);
+  }
 
   try {
     console.log(`[KC TTS Proxy] Fetching: ${url}`);
