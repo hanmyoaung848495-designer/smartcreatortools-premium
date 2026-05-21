@@ -9,7 +9,7 @@ import { FeatureType, ProcessingTask, UserSession } from '../types';
 import { KCAudioPlayer } from '@/features/KCAudioPlayer';
 import { GeminiAudioPlayer } from '../components/GeminiAudioPlayer';
 import { INITIAL_PRONUNCIATION_MAP, applyPronunciation } from '../lib/pronunciation';
-import { saveVoiceHistoryDB, loadVoiceHistoryDB, getCachedAudio, setCachedAudio } from '../services/storage';
+import { saveVoiceHistoryDB, loadVoiceHistoryDB } from '../services/storage';
 import { supabase } from '../lib/supabase';
 
 interface VoiceHistory {
@@ -346,11 +346,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
 
   const saveHistory = async (newHistory: VoiceHistory[]) => {
     setHistory(newHistory);
-    try {
-      await saveVoiceHistoryDB(newHistory);
-    } catch (dbError) {
-      console.error("Failed to save voice history to IndexedDB:", dbError);
-    }
+    await saveVoiceHistoryDB(newHistory);
   };
 
   const [isCheckingUsage, setIsCheckingUsage] = useState(false);
@@ -725,12 +721,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
 
   const previewVoice = async (voiceName: string) => {
     const cacheKey = `tts_preview_${voiceName}`;
-    let cachedAudio: string | null = null;
-    try {
-      cachedAudio = await getCachedAudio(cacheKey);
-    } catch (e) {
-      console.warn("Failed to retrieve cached audio from IndexedDB", e);
-    }
+    const cachedAudio = localStorage.getItem(cacheKey);
 
     if (cachedAudio) {
       setIsPreviewing(voiceName);
@@ -753,10 +744,8 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
         
         if (data && data.audio_data) {
           try {
-            await setCachedAudio(cacheKey, data.audio_data); // Cache in IndexedDB for next time
-          } catch (e) {
-            console.warn("Failed to cache audio in IndexedDB", e);
-          }
+            localStorage.setItem(cacheKey, data.audio_data); // Cache locally for next time
+          } catch (e) {}
           const wavBlob = base64PcmToWavBlob(data.audio_data, 24000);
           const url = URL.createObjectURL(wavBlob);
           playAudio(url);
@@ -789,9 +778,9 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
       const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
         try {
-          await setCachedAudio(cacheKey, base64Audio); // Cache in IndexedDB
+          localStorage.setItem(cacheKey, base64Audio);
         } catch (e) {
-          console.warn('Failed to cache preview audio in IndexedDB (storage full?)', e);
+          console.warn('Failed to cache preview audio (storage full?)', e);
         }
         
         // Save to Supabase disabled by user request to stop analysis and database entry
