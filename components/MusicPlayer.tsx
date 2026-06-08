@@ -44,7 +44,7 @@ const MusicPlayer: React.FC = () => {
         .order('id', { ascending: true });
       
       if (!error && data && data.length > 0) {
-        setPlaylist(data.map(item => ({ id: item.video_id, start: item.time_start || 0 })));
+        setPlaylist(data.map((item: any) => ({ id: item.video_id, start: item.time_start || 0 })));
       }
     };
     fetchPlaylist();

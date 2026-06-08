@@ -111,9 +111,9 @@ const Tutorial: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }]));
 
         // Merge DB data into default tutorials
-        const merged = DEFAULT_TUTORIALS.map(defaultT => {
+        const merged: TutorialItem[] = DEFAULT_TUTORIALS.map(defaultT => {
           if (dbTutorialMap.has(defaultT.title)) {
-            return dbTutorialMap.get(defaultT.title)!;
+            return dbTutorialMap.get(defaultT.title) as TutorialItem;
           }
           return defaultT;
         });

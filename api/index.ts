@@ -359,18 +359,113 @@ app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
   });
 });
 
+// Helper functions to encrypt/decrypt URLs to hide Hugging Face Space endpoints from devtools (F12)
+const xorKey = "SmartCreatorSecretKeySecurity";
+const encryptUrl = (url: string): string => {
+  const buffer = Buffer.from(url, 'utf8');
+  const encrypted = Buffer.alloc(buffer.length);
+  for (let i = 0; i < buffer.length; i++) {
+    encrypted[i] = buffer[i] ^ xorKey.charCodeAt(i % xorKey.length);
+  }
+  return encrypted.toString('base64url');
+};
+
+const decryptUrl = (encryptedBase64: string): string => {
+  try {
+    const buffer = Buffer.from(encryptedBase64, 'base64url');
+    const decrypted = Buffer.alloc(buffer.length);
+    for (let i = 0; i < buffer.length; i++) {
+      decrypted[i] = buffer[i] ^ xorKey.charCodeAt(i % xorKey.length);
+    }
+    return decrypted.toString('utf8');
+  } catch (e) {
+    console.error("[Decrypt URL Error]", e);
+    return "";
+  }
+};
+
+app.post(/^\/(api\/)?db-query$/, async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: "Supabase not configured on the server" });
+
+  const { action, table, select, eq, upsertData, order, limit, single } = req.body;
+
+  try {
+    if (action === 'select') {
+      let query = supabase.from(table).select(select || '*');
+      
+      if (eq) {
+        for (const [key, val] of Object.entries(eq)) {
+          if (val !== undefined && val !== null) {
+            query = query.eq(key, val);
+          }
+        }
+      }
+      
+      if (order) {
+        query = query.order(order.column, { ascending: order.ascending ?? true });
+      }
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      if (single) {
+        const { data, error } = await query.single();
+        if (error) {
+          if (error.code === 'PGRST116') {
+            return res.json({ data: null, error: null });
+          }
+          return res.status(400).json({ error: error.message, code: error.code });
+        }
+        return res.json({ data });
+      } else {
+        const { data, error } = await query;
+        if (error) {
+          return res.status(400).json({ error: error.message, code: error.code });
+        }
+        return res.json({ data });
+      }
+    } 
+    
+    if (action === 'upsert') {
+      const { data, error } = await supabase
+        .from(table)
+        .upsert(upsertData, { onConflict: req.body.onConflict });
+        
+      if (error) {
+        return res.status(400).json({ error: error.message, code: error.code });
+      }
+      return res.json({ success: true, data });
+    }
+
+    return res.status(400).json({ error: "Unsupported database action" });
+  } catch (err: any) {
+    console.error("[db-query Error]", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.get(/^\/(api\/)?kc-tts\/proxy$/, async (req, res) => {
-  let url = req.query.url as string;
+  let url = "";
+  const encryptedUrl = req.query.u as string;
+  if (encryptedUrl) {
+    url = decryptUrl(encryptedUrl);
+  } else {
+    url = req.query.url as string;
+  }
+  
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   try {
-    // Keep decoding as long as it contains percent signs (up to 3 times)
-    let decodeCount = 0;
-    while (url.includes('%') && decodeCount < 3) {
-      const decoded = decodeURIComponent(url);
-      if (decoded === url) break;
-      url = decoded;
-      decodeCount++;
+    if (!encryptedUrl) {
+      // Keep decoding as long as it contains percent signs (up to 3 times)
+      let decodeCount = 0;
+      while (url.includes('%') && decodeCount < 3) {
+        const decoded = decodeURIComponent(url);
+        if (decoded === url) break;
+        url = decoded;
+        decodeCount++;
+      }
     }
   } catch (e) {
     console.error("[KC TTS Proxy] Failed to decode URL:", e);
@@ -465,7 +560,8 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
                   const cleanPath = fullUrl.startsWith('/') ? fullUrl.slice(1) : fullUrl;
                   fullUrl = `${base}${cleanPath}`;
                 }
-                return `/api/kc-tts/proxy?url=${encodeURIComponent(fullUrl)}`;
+                const encrypted = encryptUrl(fullUrl);
+                return `/api/kc-tts/proxy?u=${encrypted}`;
               };
 
               if (data.audio_url) data.audio_url = transformUrl(data.audio_url);
