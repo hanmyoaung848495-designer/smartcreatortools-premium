@@ -66,6 +66,18 @@ const App: React.FC = () => {
           if (parsed.user && !parsed.user.usage) {
             parsed.user.usage = { appApiUsedToday: 0, ownApiUsedToday: 0, lastResetDate: new Date().toDateString() };
           }
+          // Self-expire on restart if expired
+          if (parsed.user && parsed.role !== 'admin' && !parsed.user.isLifetime && parsed.user.expiredDate) {
+            const expiry = typeof parsed.user.expiredDate === 'string'
+              ? (!isNaN(Number(parsed.user.expiredDate)) ? Number(parsed.user.expiredDate) : new Date(parsed.user.expiredDate).getTime())
+              : parsed.user.expiredDate;
+            if (Date.now() > expiry) {
+              parsed.role = 'free';
+              parsed.user = undefined;
+              parsed.adminAuth = undefined;
+              parsed.systemApiKey = undefined;
+            }
+          }
           if (parsed.role === 'free') {
             parsed.user = undefined;
             parsed.adminAuth = undefined;
@@ -119,6 +131,14 @@ const App: React.FC = () => {
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [pendingDownload, setPendingDownload] = useState<StoredResult | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ isOpen: boolean, type: FeatureType | null }>({ isOpen: false, type: null });
+
+  const handleUpdateSession = useCallback((updates: Partial<UserSession>) => {
+    setSession(prev => {
+      const newSession = { ...prev, ...updates };
+      (window as any).userSession = newSession;
+      return newSession;
+    });
+  }, []);
 
   const handleSystemLogin = async () => {
     try {
@@ -285,6 +305,22 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkDeviceSession = async () => {
       if (!session.user?.username || session.role === 'free') return;
+      
+      // Proactive client-side validation of account expiration
+      if (session.user && session.role !== 'admin' && !session.user.isLifetime && session.user.expiredDate) {
+        const now = Date.now();
+        const expiry = typeof session.user.expiredDate === 'string'
+          ? (!isNaN(Number(session.user.expiredDate)) ? Number(session.user.expiredDate) : new Date(session.user.expiredDate).getTime())
+          : session.user.expiredDate;
+          
+        if (now > expiry) {
+          handleUpdateSession({ useCustomKey: true, role: 'free', systemApiKey: undefined, user: undefined, adminAuth: undefined });
+          toast.error('အကောင့် သက်တမ်းကုန်ဆုံးသွားပါပြီ။ Admin ကို ဆက်သွယ်ပါ။');
+          setActiveFeature('home');
+          return;
+        }
+      }
+
       try {
         const { getDeviceId } = await import('./lib/device');
         const deviceId = getDeviceId();
@@ -297,7 +333,7 @@ const App: React.FC = () => {
           const { valid } = await response.json();
           if (!valid) {
             handleUpdateSession({ useCustomKey: true, role: 'free', systemApiKey: undefined, user: undefined, adminAuth: undefined });
-            toast.error('Session expired or device changed. Please login again.');
+            toast.error('Session expired, account expired, or device changed. Please login again.');
             if (activeFeature === 'admin') setActiveFeature('home');
           }
         }
@@ -311,7 +347,7 @@ const App: React.FC = () => {
     // Poll every 1 minute
     const intervalId = setInterval(checkDeviceSession, 60 * 1000);
     return () => clearInterval(intervalId);
-  }, [session.user?.username, session.role, activeFeature]);
+  }, [session.user, session.role, activeFeature, handleUpdateSession]);
 
   const startTask = useCallback((type: FeatureType, title: string, runAction: (taskId: string) => Promise<any>) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -361,14 +397,6 @@ const App: React.FC = () => {
   }, [updateTask, session, logActivity, tasks]);
 
   const activeTasks = useMemo(() => tasks.filter(t => t.status !== 'completed' && t.status !== 'failed' && !t.isCanceled), [tasks]);
-
-  const handleUpdateSession = useCallback((updates: Partial<UserSession>) => {
-    setSession(prev => {
-      const newSession = { ...prev, ...updates };
-      (window as any).userSession = newSession;
-      return newSession;
-    });
-  }, []);
 
   const renderActiveFeature = () => {
     const commonProps = { 

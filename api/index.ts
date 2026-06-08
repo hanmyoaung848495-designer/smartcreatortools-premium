@@ -808,12 +808,22 @@ app.post(/^\/(api\/)?check-device$/, async (req, res) => {
   try {
     const { data: userData, error } = await supabase
       .from('users_accounts')
-      .select('device_id')
+      .select('device_id, expired_date, is_lifetime')
       .eq('username', username)
       .single();
       
     if (error || !userData) {
       return res.json({ valid: false });
+    }
+
+    // Check expiration
+    if (!userData.is_lifetime && userData.expired_date) {
+      const now = Date.now();
+      const expiry = !isNaN(Number(userData.expired_date)) ? Number(userData.expired_date) : new Date(userData.expired_date).getTime();
+      
+      if (now > expiry) {
+        return res.json({ valid: false, reason: 'expired' });
+      }
     }
 
     if (userData.device_id !== deviceId) {
