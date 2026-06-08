@@ -1004,7 +1004,18 @@ async function setupVite() {
 setupVite();
 
 // Export for Vercel and Netlify
-export const handler = serverless(app);
+export const handler = serverless(app, {
+  binary: [
+    "audio/mpeg",
+    "audio/mp3",
+    "audio/wav",
+    "audio/x-wav",
+    "audio/ogg",
+    "audio/webm",
+    "audio/*",
+    "application/octet-stream"
+  ]
+});
 export default app;
 
 // Local listen
