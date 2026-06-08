@@ -11,6 +11,22 @@ import { hasProfanity } from "../lib/profanity.js";
 const app = express();
 app.use(express.json());
 
+// Normalize incoming Netlify serverless function paths so Express routes match correctly
+app.use((req, res, next) => {
+  const netlifyPrefix = "/.netlify/functions/index";
+  if (req.url.startsWith(netlifyPrefix)) {
+    let remaining = req.url.slice(netlifyPrefix.length);
+    if (!remaining.startsWith("/")) {
+      remaining = "/" + remaining;
+    }
+    if (!remaining.startsWith("/api/") && remaining !== "/api") {
+      remaining = "/api" + remaining;
+    }
+    req.url = remaining;
+  }
+  next();
+});
+
 // Initialize Supabase
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 // IMPORTANT: Use SUPABASE_SERVICE_ROLE_KEY to bypass Row Level Security (RLS) for admin operations.
