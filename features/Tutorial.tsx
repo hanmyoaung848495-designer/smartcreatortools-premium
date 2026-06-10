@@ -122,6 +122,29 @@ const YouTubeEmbed: React.FC<{ videoId: string; timestamp?: string }> = ({ video
   );
 };
 
+const TutorialDescription: React.FC<{ description: string; id: string }> = ({ description, id }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const maxLength = 180;
+  const isLong = description.length > maxLength;
+
+  return (
+    <div className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium flex-1">
+      <div className="whitespace-pre-wrap">
+        {isExpanded ? description : (isLong ? `${description.substring(0, maxLength)}...` : description)}
+      </div>
+      {isLong && (
+        <button
+          id={`tut-see-more-btn-${id}`}
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-2 text-indigo-600 dark:text-indigo-400 font-bold hover:underline focus:outline-none cursor-pointer flex items-center gap-1 text-sm"
+        >
+          {isExpanded ? 'See less' : 'See more'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const Tutorial: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const [tutorials, setTutorials] = useState<TutorialItem[]>(DEFAULT_TUTORIALS);
   const [loading, setLoading] = useState(true);
@@ -207,12 +230,10 @@ const Tutorial: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <YouTubeEmbed videoId={item.videoId} timestamp={item.timestamp} />
               )}
 
-              <div className="bg-slate-50 dark:bg-gray-700 rounded-2xl p-6 border border-slate-100 dark:border-gray-600">
+              <div className="p-0 mt-6">
                 <div className="flex gap-3">
                   <Info size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-1" />
-                  <div className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
-                    {item.description}
-                  </div>
+                  <TutorialDescription description={item.description} id={item.id?.toString() || index.toString()} />
                 </div>
               </div>
             </div>

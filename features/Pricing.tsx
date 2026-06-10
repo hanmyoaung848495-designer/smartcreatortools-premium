@@ -169,11 +169,34 @@ const Pricing: React.FC<PricingProps> = ({ onBack, onToggleMenu, session }) => {
             Unlock your <span className="text-indigo-600">Full Potential</span>
           </h2>
           
-          <p className="text-gray-500 dark:text-gray-400 text-sm max-w-lg mx-auto leading-relaxed">
-            Kpay, Wave, Aya Pay များဖြင့် လွယ်ကူစွာ ဝယ်ယူရရှိနိုင်ပါပြီ။
+          <p className="text-sm max-w-lg mx-auto leading-relaxed">
+            <span className="text-blue-500 dark:text-blue-400 font-black">Kpay</span>, <span className="text-yellow-500 dark:text-yellow-400 font-black">Wave</span>, <span className="text-red-500 dark:text-red-400 font-black">Aya Pay</span> <span className="text-indigo-600 dark:text-indigo-400 font-black">များဖြင့် လွယ်ကူစွာ ဝယ်ယူရရှိနိုင်ပါပြီ။</span>
             <br />
             <span className="text-[10px] uppercase tracking-widest font-bold text-amber-500 mt-2 block">🔔 Gemini Service Needs API</span>
           </p>
+
+          <div className="mt-6 flex justify-center px-4">
+            <div className="relative p-[1.5px] rounded-xl overflow-hidden w-full max-w-md shadow-lg">
+              <style>
+                {`
+                  @keyframes rotate-gradient-inst {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                  .rotate-animation-inst {
+                    animation: rotate-gradient-inst 4s linear infinite;
+                    transform-origin: center center;
+                  }
+                `}
+              </style>
+              <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,#eab308,#22c55e,#ef4444,#eab308)] rotate-animation-inst" />
+              <div className="relative bg-white dark:bg-gray-950 rounded-[11px] px-5 py-3 flex items-center justify-center gap-2">
+                <p className="text-[11px] md:text-xs font-bold text-gray-800 dark:text-gray-200 leading-relaxed text-center">
+                  ဝယ်ယူလိုပါက <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">Choose Plan</span> ကိုနှိပ်၍ <span className="text-blue-500 dark:text-blue-400 font-extrabold">Telegram Bot</span> ကို <span className="text-emerald-500 dark:text-emerald-400 font-extrabold">Start</span> နှိပ်ကာ ဝယ်ယူနိုင်ပါသည်။
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Rotating Gradient Header */}
