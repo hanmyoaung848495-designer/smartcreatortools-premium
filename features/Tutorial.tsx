@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button, Card } from '../components/Shared';
 import { ArrowLeft, Play, Info } from 'lucide-react';
@@ -14,9 +13,59 @@ interface TutorialItem {
 
 const DEFAULT_TUTORIALS: TutorialItem[] = [
   {
+    title: "AI Voice (AIအသံထုတ်ရန်)",
+    description: `KC Voice နဲ့ Gemini Voice နှစ်မျိုးရှိပါတယ်။
+KC Voice တွင်အသံထုတ်ပါက အသံဖိုင်နှင့်အတူ တိကျတဲ့စာတန်းထိုး(SRT)ဖိုင်ကိုပါရရှိမှာဖြစ်ပါတယ်။ အသံအနှေးအမြန်၊pitchတွေကိုလည်းစိတ်ကြိုက်ချိန်ညှိနိုင်ပါတယ်။
+Gemini Voice သည်Google AI Studioကိုသွားစရာမလိုဘဲ Gemini အသံများကိုလွယ်လွယ်ကူကူထုတ်နိုင်အောင်စမ်းသပ်ထားခြင်းဖြစ်ပါတယ်။ Style instructions မှာမိမိဖတ်စေချင်တဲ့ပုံစံများကိုအင်္ဂလိပ်လိုရောမြန်မာလိုပါရေးသားနိုင်ပါတယ်။
+ဖတ်စေလိုတဲ့စာပိုဒ်ရဲ့စာသားများရှေ့တွင်အောက်မှာပြထားတဲ့ Audio tags များကိုလိုအပ်သလိုထည့်သွင်းအသုံးပြုခြင်းအားဖြင့်ပိုကောင်းတဲ့ရလဒ်ကိုရရှိမှာဖြစ်ပါတယ်။
+
+အသံထိန်းချုပ်ရန် Tag များ
+(Gemini Voice အတွက်သာ)
+
+ [pause=0.5] (အချိန်အတိုင်းအတာဖြင့် ရပ်ရန်)
+ [short pause] (ခဏတဖြုတ် ရပ်ရန်)
+ [fast] (မြန်မြန်ပြောရန်)
+ [very fast] (အလွန်မြန်မြန်ပြောရန်)
+ [slow] (နှေးနှေးပြောရန်)
+ [very slow] (အလွန်နှေးနှေးပြောရန်)
+ခံစားချက်နှင့် ဟန်ပန်ဖော်ပြရန် Tag များ
+ [excited] (စိတ်လှုပ်ရှားစွာဖြင့်)
+ [cried] (ငိုသံပါပါဖြင့်)
+ [sad] (ဝမ်းနည်းစွာဖြင့်)
+ [happy] (ပျော်ရွှင်စွာဖြင့်)
+ [cheerful] (ရွှင်လန်းတက်ကြွစွာဖြင့်)
+ [reluctantly] (မလိုလားဘဲ တုံ့ဆိုင်းဆိုင်းဖြင့်)
+ [determination] (စိတ်ပိုင်းဖြတ်ထားသည့်ဟန်ဖြင့်)
+ [shocked] (အံ့အားသင့်စွာဖြင့်)
+ [anxious] (စိုးရိမ်ပူပန်စွာဖြင့်)
+ [whispers] (တီးတိုးပြောရန်)
+ [shouting] (အော်ပြောရန်)
+ [conversational] (သာမန် စကားပြောသလို သဘာဝကျကျပြောရန်)
+ [neutral] (ခံစားချက်မပါဘဲ ရိုးရိုးပြောရန်)
+ [sarcastically] (ခနဲ့တဲ့တဲ့ ရွဲ့ပြောရန်)
+ [sinister] (ကြောက်မက်ဖွယ် / မကောင်းဆိုးဝါးဟန်ဖြင့်)
+ [laughing] (ရယ်မောလျက်ပြောရန်)
+အထူးအသံနေအသံထားများ
+ [like Eminem] (ရက်ပါသီချင်းဆိုသလို)
+ [like grandpal] (အဘိုးအိုအသံ)
+ [cartoon dog voice] (ကာတွန်းခွေးလေးအသံ)
+ [Dracula tone] (ဒရက်ကူလာ လေသံ)
+ [sarcastically, one painfully slow word at a time] (ရွဲ့ပြီး တစ်လုံးချင်းစီ အလွန်နှေးကွေးစွာ အားယူပြောရန်)
+
+အဆင်မပြေပါက Admin ထံဆက်သွယ်မေးမြန်းလို့ရပါတယ်ခင်ဗျာ။`,
+    videoId: "sGHe7nhThwo",
+    timestamp: "30"
+  },
+  {
     title: "Transcribe (အသံဖိုင်မှ စာသားပြောင်းခြင်း)",
     description: "Tutorial videoတွေမလုပ်ရသေးလို့ သီချင်းလေးပဲနားထောင်ပေးပါဦး။ \n ဗီဒီယို သို့မဟုတ် အသံဖိုင်များမှ စကားပြောများကို စာသားအဖြစ် အလိုအလျောက် ပြောင်းလဲပေးပါသည်။ YouTube Link များမှလည်း တိုက်ရိုက် ပြောင်းလဲနိုင်ပါသည်။",
     videoId: "Xdd9xScgNPM",
+    timestamp: "30"
+  },
+  {
+    title: "Translator (ဘာသာပြန်ဆိုခြင်း)",
+    description: "စာသားများ သို့မဟုတ် SRT ဖိုင်များကို အချိန်မှတ်များ မလွဲချော်စေဘဲ အခြားဘာသာစကားများသို့ တိကျစွာ ဘာသာပြန်ပေးပါသည်။",
+    videoId: "epA3sSWCLx4",
     timestamp: "30"
   },
   {
@@ -26,32 +75,21 @@ const DEFAULT_TUTORIALS: TutorialItem[] = [
     timestamp: "0"
   },
   {
-    title: "Text To SRT (စာသားမှ SRT ပြောင်းခြင်း)",
-    description: "အချိန်မှတ် (Timestamp) ပါဝင်သော စာသားများကို SRT ဖိုင်အဖြစ်သို့ လွယ်ကူလျင်မြန်စွာ ပြောင်းလဲပေးပါသည်။ API Key မလိုဘဲ အသုံးပြုနိုင်ပါသည်။",
-    videoId: "sGHe7nhThwo",
-    timestamp: "30"
-  },
-  {
     title: "AI Script Writer (AI ဖြင့် ဇာတ်ညွှန်းရေးခြင်း)",
     description: "သင်ပေးလိုက်သော ခေါင်းစဉ်အပေါ် မူတည်၍ စိတ်ဝင်စားဖွယ်ကောင်းသော Script များကို AI က ရေးသားပေးမည် ဖြစ်ပါသည်။ Style နှင့် Length ကိုလည်း စိတ်ကြိုက် ရွေးချယ်နိုင်ပါသည်။",
     videoId: "5D66YbnUO1s",
     timestamp: "10"
   },
   {
-    title: "Translator (ဘာသာပြန်ဆိုခြင်း)",
-    description: "စာသားများ သို့မဟုတ် SRT ဖိုင်များကို အချိန်မှတ်များ မလွဲချော်စေဘဲ အခြားဘာသာစကားများသို့ တိကျစွာ ဘာသာပြန်ပေးပါသည်။",
-    videoId: "epA3sSWCLx4",
-    timestamp: "30"
-  },
-  {
     title: "Teleprompter (တယ်လီပရွန်တာ)",
-    description: "TelePromp AI is your professional teleprompter and recording studio.\n\nYou can use the controls at the bottom to adjust your reading speed and font size.\n\nTry the AI Script Generator by clicking the sparkle icon to create a new script in seconds.\n\nHover your mouse over this text to pause the scrolling automatically.",
+    description: `Teleprompter ကို ကိုယ်ပိုင်အသံဖြင့်အသံသွင်းပြီး content ဖန်တီးသူများအတွက်အဆင်ပြေစေရန်ရည်ရွယ်ဖန်တီးထားပါတယ်။ မိမိဖတ်လိုသောစာသားကိုထည့်ပြီး Auto Scroll လုပ်ကာစာသားများကိုဖတ်ပြီးအသံသွင်းနိုင်ပါတယ်။ Scroll လုပ်တဲ့ speedအနှေးအမြန်၊စာလံုးအကြီးအသေးချိန်နိုင်သလို ဖတ်နေစဉ်မှာ လက်နဲ့ဖိ၍လဲရပ်ထားနိုင်ပါတယ်။
+Gemini APIထည့်ပြီး ခေါင်းစဉ်ပေးက AIကိုလည်းဇာတ်လမ်းရေးခိုင်းနိုင်ပါတယ်။`,
     videoId: "-3FIdZrEnFE",
     timestamp: "2"
   },
   {
-    title: "AI Voice (AIအသံထုတ်ရန်)",
-    description: "Google AI Studioကိုသွားစရာမလိုပဲ အသံထုတ်လို့ပိုပြီးလွယ်အောင်စမ်းသပ်ထားခြင်းဖြစ်ပါတယ်။အဆင်ပြေရင် Contact မှာ Reviewလေးတွေလာပြောပေးပါဦး",
+    title: "Text To SRT (စာသားမှ SRT ပြောင်းခြင်း)",
+    description: "အချိန်မှတ် (Timestamp) ပါဝင်သော စာသားများကို SRT ဖိုင်အဖြစ်သို့ လွယ်ကူလျင်မြန်စွာ ပြောင်းလဲပေးပါသည်။ API Key မလိုဘဲ အသုံးပြုနိုင်ပါသည်။",
     videoId: "sGHe7nhThwo",
     timestamp: "30"
   },
@@ -169,14 +207,14 @@ const Tutorial: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <YouTubeEmbed videoId={item.videoId} timestamp={item.timestamp} />
               )}
 
-                <div className="bg-slate-50 dark:bg-gray-700 rounded-2xl p-6 border border-slate-100 dark:border-gray-600">
-                  <div className="flex gap-3">
-                    <Info size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-1" />
-                    <div className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
-                      {item.description}
-                    </div>
+              <div className="bg-slate-50 dark:bg-gray-700 rounded-2xl p-6 border border-slate-100 dark:border-gray-600">
+                <div className="flex gap-3">
+                  <Info size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-1" />
+                  <div className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
+                    {item.description}
                   </div>
                 </div>
+              </div>
             </div>
           </Card>
         ))}

@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
-import { UserSession, FeatureType, StoredResult, ProcessingTask } from '../types';
-import { Card, Button, ProgressBar, TextArea, ResultBox, TutorialButton } from '../components/Shared';
-import { generateSubtitles, convertTextToSRT } from '../services/gemini';
-import PersistentResults from '../components/PersistentResults';
+import { UserSession, FeatureType, StoredResult, ProcessingTask } from '../../types';
+import { Card, Button, ProgressBar, TextArea, ResultBox, TutorialButton } from '../../components/Shared';
+import { generateSubtitles, convertTextToSRT } from '../gemini';
+import PersistentResults from '../../components/PersistentResults';
 
 interface Props {
   onBack: () => void;

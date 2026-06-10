@@ -1,3 +1,4 @@
+
 export const getDeviceId = () => {
     let deviceId = localStorage.getItem('smart_creator_device_id');
     if (!deviceId) {

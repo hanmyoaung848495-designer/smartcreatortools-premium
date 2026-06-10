@@ -131,6 +131,7 @@ const App: React.FC = () => {
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [pendingDownload, setPendingDownload] = useState<StoredResult | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ isOpen: boolean, type: FeatureType | null }>({ isOpen: false, type: null });
+  const [apiErrorModal, setApiErrorModal] = useState<{ isOpen: boolean, message: string } | null>(null);
 
   const handleUpdateSession = useCallback((updates: Partial<UserSession>) => {
     setSession(prev => {
@@ -387,10 +388,15 @@ const App: React.FC = () => {
           return currentTasks.map(t => t.id === id ? { ...t, status: 'completed', progress: 100, result } : t);
         });
       } catch (err: any) {
+        const errorMsg = err?.message || String(err || 'Processing error');
         setTasks(currentTasks => {
           const task = currentTasks.find(t => t.id === id);
           if (task?.isCanceled) return currentTasks;
-          return currentTasks.map(t => t.id === id ? { ...t, status: 'failed', error: err.message || 'Processing error' } : t);
+          return currentTasks.map(t => t.id === id ? { ...t, status: 'failed', error: errorMsg } : t);
+        });
+        setApiErrorModal({
+          isOpen: true,
+          message: errorMsg
         });
       }
     })();
@@ -722,6 +728,57 @@ const App: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {apiErrorModal && apiErrorModal.isOpen && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-red-200 dark:border-red-950/40 animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-800 bg-red-50/50 dark:bg-red-950/10">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <XCircle size={20} className="shrink-0" />
+                <span className="font-extrabold text-sm tracking-tight">API Request Error</span>
+              </div>
+              <button 
+                onClick={() => setApiErrorModal(null)} 
+                className="p-1.5 hover:bg-gray-200/50 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 overflow-y-auto text-sm text-gray-600 dark:text-gray-300 space-y-4">
+              <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-2xl border border-red-100 dark:border-red-900/30 font-mono text-xs text-red-700 dark:text-red-400 break-words max-h-48 overflow-y-auto leading-relaxed">
+                {apiErrorModal.message}
+              </div>
+              
+              <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/10 rounded-2xl border border-indigo-100/30 text-center">
+                <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 leading-relaxed">
+                  အဆင်မပြေမှုတစ်စုံတရာဖြစ်ပေါ်ပါက Screen shot ရိုက်၍ Admin ထပ်ဆက်သွယ်မေးမြန်းနိုင်ပါတယ်။
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex gap-3">
+              <button 
+                onClick={() => setApiErrorModal(null)} 
+                className="flex-1 py-3 bg-gray-200/60 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold text-xs transition-colors"
+              >
+                ပိတ်ရန်
+              </button>
+              <a 
+                href="https://t.me/kcteamofficialbot" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs text-center flex items-center justify-center gap-2 shadow-lg shadow-red-500/10 transition-colors"
+              >
+                Contact Admin
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal
         isOpen={showWelcomePopup}

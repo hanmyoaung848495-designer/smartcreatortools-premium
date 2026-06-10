@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { getAIClient } from '../services/gemini';
 import { Card, Button, TextArea, Input, Select, ProgressBar, TutorialButton } from '../components/Shared';
-import { Play, Pause, Download, Trash2, History, ArrowLeft, Mic, Volume2, Users, User, StopCircle, Loader2, X } from 'lucide-react';
+import { Play, Pause, Download, Trash2, History, ArrowLeft, Mic, Volume2, Users, User, StopCircle, Loader2, X, RotateCcw } from 'lucide-react';
 import { FeatureType, ProcessingTask, UserSession } from '../types';
 import { KCAudioPlayer } from '@/features/KCAudioPlayer';
 import { GeminiAudioPlayer } from '../components/GeminiAudioPlayer';
@@ -41,10 +41,9 @@ const VOICES = [
 ];
 
 const MODELS = [
-  { label: 'Gemini 3.1 Flash (TTS Preview)', value: 'gemini-3.1-flash-preview-tts' },
-  { label: 'Gemini 2.5 Preview (High Quality)', value: 'gemini-2.5-preview-tts' },
-  { label: 'Gemini 2.5 Flash (Fast)', value: 'gemini-2.5-flash-preview-tts' },
-  { label: 'Gemini 1.5 Flash (TTS Preview)', value: 'gemini-1.5-flash-preview-tts' }
+  { label: 'Gemini 3.1 Flash (TTS Preview)', value: 'gemini-3.1-flash-tts-preview' },
+  { label: 'Gemini 2.5 Pro (High Quality)', value: 'gemini-2.5-pro-preview-tts' },
+  { label: 'Gemini 2.5 Flash (Fast)', value: 'gemini-2.5-flash-preview-tts' }
 ];
 
 // KC TTS Constants
@@ -105,9 +104,30 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
   const [kcStyleOpen, setKcStyleOpen] = useState(false);
   const [kcRatio, setKcRatio] = useState<'9:16' | '16:9'>('9:16');
   const [kcFileName, setKcFileName] = useState('KC_Voice');
-  const [kcPitch, setKcPitch] = useState(0);
-  const [kcRate, setKcRate] = useState(0);
-  const [kcVolume, setKcVolume] = useState(0);
+  const [kcPitch, setKcPitch] = useState(() => {
+    const saved = localStorage.getItem('kc_pitch');
+    return saved !== null ? Number(saved) : 0;
+  });
+  const [kcRate, setKcRate] = useState(() => {
+    const saved = localStorage.getItem('kc_rate');
+    return saved !== null ? Number(saved) : 0;
+  });
+  const [kcVolume, setKcVolume] = useState(() => {
+    const saved = localStorage.getItem('kc_volume');
+    return saved !== null ? Number(saved) : 0;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('kc_pitch', kcPitch.toString());
+  }, [kcPitch]);
+
+  useEffect(() => {
+    localStorage.setItem('kc_rate', kcRate.toString());
+  }, [kcRate]);
+
+  useEffect(() => {
+    localStorage.setItem('kc_volume', kcVolume.toString());
+  }, [kcVolume]);
   const [kcManualOpen, setKcManualOpen] = useState(false);
   const [kcPronunciationOpen, setKcPronunciationOpen] = useState(false);
   const [kcManualText, setKcManualText] = useState(`Intro = အင်ထရို\nတူမလေး = တူ မ လေး`);
@@ -170,7 +190,12 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
         if (key && val) customMap[key] = val;
     });
 
-    let processedText = applyPronunciation(kcText, customMap);
+    let processedText = kcText
+      .replace(/\[\s*[cC]1\s*\]/g, '[V1]')
+      .replace(/\[\s*[cC]2\s*\]/g, '[V2]')
+      .replace(/\[\s*[cC]3\s*\]/g, '[V3]');
+
+    processedText = applyPronunciation(processedText, customMap);
 
     setKcLoading(true);
     setKcResult(null);
@@ -1148,8 +1173,8 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                 <button
                   onClick={() => {
                     setKcMode('multi');
-                    if (!kcText.includes('[V1]')) {
-                      setKcText('[V1] မျှင်မျှင်ရေ [V2] ပြောပါကိုကိုတွတ်ရေ [V3] ဟာ ဒီလင်မယားကတော့ လာရိုပြနေတာပဲ');
+                    if (!kcText.includes('[C1]')) {
+                      setKcText('[C1] မျှင်မျှင်ရေ [C2] ပြောပါကိုကိုတွတ်ရေ [C3] ဟာ ဒီလင်မယားကတော့ လာရိုပြနေတာပဲ');
                     }
                   }}
                   className={`flex items-center gap-2 px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${kcMode === 'multi' ? 'tool-btn-gradient tool-btn-gradient-active text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -1177,7 +1202,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                 {/* Character 1 */}
                 <div className="flex flex-col gap-1.5 relative character-dropdown-container">
                   <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {kcMode === 'single' ? 'Character' : 'Speaker V1'}
+                    {kcMode === 'single' ? 'Character' : 'Speaker 1'}
                   </label>
                   <button
                     onClick={() => setKcCharOpen(kcCharOpen === 'v1' ? null : 'v1')}
@@ -1234,7 +1259,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                 {kcMode === 'multi' && (
                   <>
                     <div className="flex flex-col gap-1.5 relative character-dropdown-container">
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Speaker V2</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Speaker 2</label>
                       <button
                         onClick={() => setKcCharOpen(kcCharOpen === 'v2' ? null : 'v2')}
                         className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-left transition-all hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -1283,7 +1308,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                     </div>
 
                     <div className="flex flex-col gap-1.5 relative character-dropdown-container">
-                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Speaker V3</label>
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Speaker 3</label>
                       <button
                         onClick={() => setKcCharOpen(kcCharOpen === 'v3' ? null : 'v3')}
                         className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-left transition-all hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
@@ -1347,7 +1372,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                   
                   {kcStyleOpen && (
                     <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="max-h-[200px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                       <div className="max-h-[200px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                         {KC_STYLES.map((style) => (
                           <div
                             key={style.value}
@@ -1370,15 +1395,18 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                   )}
                 </div>
               </div>
+
               <div className="flex gap-4 items-center">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">SRT Ratio:</label>
                 <button
+                  type="button"
                   onClick={() => setKcRatio('16:9')}
                   className={`px-4 py-1 rounded text-xs font-bold transition-all ${kcRatio === '16:9' ? 'tool-btn-gradient tool-btn-gradient-active text-indigo-600 shadow-sm' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'}`}
                 >
                   16:9
                 </button>
                 <button
+                  type="button"
                   onClick={() => setKcRatio('9:16')}
                   className={`px-4 py-1 rounded text-xs font-bold transition-all ${kcRatio === '9:16' ? 'tool-btn-gradient tool-btn-gradient-active text-indigo-600 shadow-sm' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'}`}
                 >
@@ -1389,6 +1417,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
               {/* Manual Style Controls */}
               <div className="space-y-2">
                 <button
+                  type="button"
                   onClick={() => setKcManualOpen(!kcManualOpen)}
                   className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 rounded-xl hover:border-indigo-300 transition-all shadow-sm"
                 >
@@ -1400,21 +1429,51 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                   <div className="p-4 bg-white border border-gray-100 rounded-xl space-y-4 shadow-inner">
                     <div className="space-y-1">
                       <div className="flex justify-between items-center text-xs font-medium text-gray-700">
-                        <span>Pitch</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>Pitch</span>
+                          <button
+                            type="button"
+                            onClick={() => setKcPitch(0)}
+                            className="p-0.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-100 transition-colors"
+                            title="Reset Pitch"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <span>{kcPitch}</span>
                       </div>
                       <input type="range" min="-50" max="50" value={kcPitch} onChange={(e) => setKcPitch(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between items-center text-xs font-medium text-gray-700">
-                        <span>Rate</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>Rate (Speed)</span>
+                          <button
+                            type="button"
+                            onClick={() => setKcRate(0)}
+                            className="p-0.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-100 transition-colors"
+                            title="Reset Rate (Speed)"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <span>{kcRate}%</span>
                       </div>
                       <input type="range" min="-100" max="100" value={kcRate} onChange={(e) => setKcRate(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                     </div>
                     <div className="space-y-1">
                       <div className="flex justify-between items-center text-xs font-medium text-gray-700">
-                        <span>Volume</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>Volume</span>
+                          <button
+                            type="button"
+                            onClick={() => setKcVolume(0)}
+                            className="p-0.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-100 transition-colors"
+                            title="Reset Volume"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                         <span>{kcVolume}</span>
                       </div>
                       <input type="range" min="0" max="20" value={kcVolume} onChange={(e) => setKcVolume(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
