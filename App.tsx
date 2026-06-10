@@ -143,6 +143,56 @@ const App: React.FC = () => {
   const [confirmClear, setConfirmClear] = useState<{ isOpen: boolean, type: FeatureType | null }>({ isOpen: false, type: null });
   const [apiErrorModal, setApiErrorModal] = useState<{ isOpen: boolean, message: string } | null>(null);
 
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [showIOSInstallGuide, setShowIOSInstallGuide] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+
+    // Initial display mode check
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+      setShowInstallBtn(false);
+    } else {
+      // For iOS Safari or if prompt is not supported, we can show guide trigger
+      const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      if (isIOSDevice) {
+        setShowInstallBtn(true);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    if (isIOSDevice) {
+      setShowIOSInstallGuide(true);
+      setIsMenuOpen(false);
+      return;
+    }
+
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setShowInstallBtn(false);
+      }
+      setIsMenuOpen(false);
+    } else {
+      setShowIOSInstallGuide(true);
+      setIsMenuOpen(false);
+    }
+  };
+
   const handleUpdateSession = useCallback((updates: Partial<UserSession>) => {
     setSession(prev => {
       const newSession = { ...prev, ...updates };
@@ -633,6 +683,14 @@ const App: React.FC = () => {
               >
                 <Send size={18} className="text-sky-500" /> Contact
               </a>
+              {showInstallBtn && (
+                <button 
+                  onClick={handleInstallClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 dark:border-indigo-500/20 text-blue-600 dark:text-indigo-400 hover:opacity-90 transition-all"
+                >
+                  <Download size={18} className="text-blue-500 animate-pulse animate-bounce" /> App Install လုပ်ရန် (PWA)
+                </button>
+              )}
               {session.role !== 'free' ? (
                   <button 
                   onClick={() => {
@@ -942,9 +1000,61 @@ const App: React.FC = () => {
             <h4 className="font-bold text-gray-900 dark:text-gray-100">၃။ တာဝန်ယူမှု</h4>
             <p>ဤဝန်ဆောင်မှုကို "ရှိသည့်အတိုင်း" သာ ဖန်တီးပေးထားပါသည်။ အနှောင့်အယှက်ကင်းသည့် ဝန်ဆောင်မှု သို့မဟုတ် တိကျသော ရလဒ်များအတွက် အာမခံချက်မပေးနိုင်ပါ။</p>
             <h4 className="font-bold text-gray-900 dark:text-gray-100">၄။ Service Scope and Plan Coverage</h4>
-            <p>ကျွန်ုပ်တို့၏ ဝန်ဆောင်မှုသည် KC TTS & SRT အတွက်သာအဓိကဖြစ်ပြီး အခြားသော Tool များသည် မေတ္တာလက်ဆောင် အဖြစ်ဖန်တီးပေးထားခြင်းဖြစ်ပါသည်။ "KC TTS & SRT Plan" တွင် KC Voice နှင့် SRT ဝန်ဆောင်မှုတို့သာ သီးသန့်အကျုံးဝင်မည်ဖြစ်ပါသည်။</p>
+            <p>ကျွန်ုပ်တို့၏ ဝန်ဆောင်မှုသည် KC TTS & SRT အတွက်သာအဓicဖြစ်ပြီး အခြားသော Tool များသည် မေတ္တာလက်ဆောင် အဖြစ်ဖန်တီးပေးထားခြင်းဖြစ်ပါသည်။ "KC TTS & SRT Plan" တွင် KC Voice နှင့် SRT ဝန်ဆောင်မှုတို့သာ သီးသန့်အကျုံးဝင်မည်ဖြစ်ပါသည်။</p>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showIOSInstallGuide}
+        onClose={() => setShowIOSInstallGuide(false)}
+        title={<span className="text-lg font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent" style={{ fontFamily: 'A09_Khit, sans-serif' }}>Application Install ပြုလုပ်ရန်</span>}
+        maxWidth="max-w-md"
+        hideBottomClose={true}
+      >
+        <div className="space-y-4 py-2 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+          {/iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream ? (
+            <div className="space-y-3">
+              <p className="font-bold text-gray-900 dark:text-gray-100">
+                iPhone / iPad (Safari Browser) တွင် Install ပြုလုပ်ရန် လမ်းညွှန် -
+              </p>
+              <ol className="list-decimal list-inside space-y-2 text-xs">
+                <li>Safari Browser ၏ အောက်ခြေရှိ <span className="font-bold text-blue-600">Share Button (မျှဝေရန်ပုံ)</span> ကို နှိပ်ပါ။</li>
+                <li>ပေါ်လာသော Menu ထဲမှ သတ်မှတ်ချက်များကို အောက်သို့ ဆွဲချပြီး <span className="font-bold text-indigo-600">"Add to Home Screen" (ပင်မမျက်နှာပြင်သို့ ထည့်ရန်)</span> ကို ရွေးချယ်ပါ။</li>
+                <li>ညာဘက်အပေါ်ထောင့်ရှိ <span className="font-bold text-emerald-600">"Add"</span> ကို နှိပ်ပြီး အသုံးပြုနိုင်ပါပြီ။</li>
+              </ol>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="font-bold text-gray-900 dark:text-gray-100">
+                Android သို့မဟုတ် Chrome Browser တွင် Install ပြုလုပ်ရန် လမ်းညွှန် -
+              </p>
+              <ol className="list-decimal list-inside space-y-2 text-xs">
+                <li>Browser ၏ ညာဘက်အပေါ်ထောင့်ရှိ <span className="font-bold text-blue-600">အစက်သုံးစက် (Menu)</span> ကို နှိပ်ပါ။</li>
+                <li>ပေါ်လာသော Menu ထဲမှ <span className="font-bold text-indigo-600">"Install app" သို့မဟုတ် "Add to Home screen"</span> ကို ရွေးချယ်ပါ။</li>
+                <li>ပေါ်လာသော Popup တွင် <span className="font-bold text-emerald-600">"Install"</span> ကို နှိပ်၍ အသုံးပြုနိုင်ပါပြီ။</li>
+              </ol>
+              {deferredPrompt && (
+                <div className="pt-2 text-center">
+                  <button 
+                    onClick={handleInstallClick} 
+                    className="w-full py-2.5 font-bold rounded-xl text-center bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all active:scale-95"
+                  >
+                    ယခုပင် Install လုပ်မည်
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+            <button 
+              onClick={() => setShowIOSInstallGuide(false)} 
+              className="py-2 px-4 text-xs font-bold bg-gray-100 dark:bg-gray-700 hover:opacity-90 rounded-xl text-gray-800 dark:text-gray-200"
+            >
+              ပိတ်မည်
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-50">
