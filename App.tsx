@@ -111,7 +111,7 @@ const App: React.FC = () => {
   const [modalType, setModalType] = useState<'privacy' | 'terms' | null>(null);
   const [showWelcomePopup, setShowWelcomePopup] = useState(false);
   const [doNotShowAgain, setDoNotShowAgain] = useState(false);
-  const [showLanding, setShowLanding] = useState(!session.user);
+  const [showLanding, setShowLanding] = useState(!session.user && session.role !== 'admin');
 
   const handleTermsAgree = () => {
     if (doNotShowAgain) {
@@ -121,6 +121,16 @@ const App: React.FC = () => {
   };
   const [showApiKeyPopup, setShowApiKeyPopup] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAuthRequiredModal, setShowAuthRequiredModal] = useState(false);
+
+  const handleSelectFeature = (feature: FeatureType) => {
+    const publicFeatures: FeatureType[] = ['home', 'pricing', 'tutorial', 'api-guide'];
+    if (!session.user && session.role !== 'admin' && !publicFeatures.includes(feature)) {
+      setShowAuthRequiredModal(true);
+      return;
+    }
+    setActiveFeature(feature);
+  };
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [loginId, setLoginId] = useState('');
   const [loginPass, setLoginPass] = useState('');
@@ -194,7 +204,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!session.user) {
+    if (!session.user && session.role !== 'admin') {
       setShowLanding(true);
     }
   }, []);
@@ -421,7 +431,7 @@ const App: React.FC = () => {
     };
 
     switch (activeFeature) {
-      case 'home': return <Home onSelect={setActiveFeature} settings={settings} activeTasks={activeTasks} session={session} onUpdateSession={handleUpdateSession} onRequireLogin={() => setShowLoginModal(true)} />;
+      case 'home': return <Home onSelect={handleSelectFeature} settings={settings} activeTasks={activeTasks} session={session} onUpdateSession={handleUpdateSession} onRequireLogin={() => setShowLoginModal(true)} />;
       case 'transcribe': return <Transcribe {...commonProps} />;
       case 'translate': return <Translate {...commonProps} />;
       case 'srt-translate': return <SRTTranslate {...commonProps} />;
@@ -436,16 +446,22 @@ const App: React.FC = () => {
       case 'pricing': return <Pricing onBack={() => setActiveFeature('home')} onToggleMenu={toggleMenu} session={session} />;
       case 'admin': 
         if (session.role !== 'admin') {
-          return <Home onSelect={setActiveFeature} settings={settings} activeTasks={activeTasks} session={session} onUpdateSession={handleUpdateSession} onRequireLogin={() => setShowLoginModal(true)} />;
+          return <Home onSelect={handleSelectFeature} settings={settings} activeTasks={activeTasks} session={session} onUpdateSession={handleUpdateSession} onRequireLogin={() => setShowLoginModal(true)} />;
         }
         return <AdminDashboard onBack={() => setActiveFeature('home')} session={session} />;
-      default: return <Home onSelect={setActiveFeature} settings={settings} activeTasks={activeTasks} session={session} onUpdateSession={handleUpdateSession} onRequireLogin={() => setShowLoginModal(true)} />;
+      default: return <Home onSelect={handleSelectFeature} settings={settings} activeTasks={activeTasks} session={session} onUpdateSession={handleUpdateSession} onRequireLogin={() => setShowLoginModal(true)} />;
     }
   };
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   const navigateTo = (feature: FeatureType) => {
+    const publicFeatures: FeatureType[] = ['home', 'pricing', 'tutorial', 'api-guide'];
+    if (!session.user && session.role !== 'admin' && !publicFeatures.includes(feature)) {
+      setShowAuthRequiredModal(true);
+      setIsMenuOpen(false);
+      return;
+    }
     setActiveFeature(feature);
     setIsMenuOpen(false);
   };
@@ -454,7 +470,7 @@ const App: React.FC = () => {
     <div className={`min-h-screen flex flex-col transition-colors duration-500 ${isDarkMode ? 'dark bg-gray-950' : 'bg-gray-50'}`}>
       <Toaster position="top-center" richColors closeButton />
       
-      {!session.user && showLanding && (
+      {!session.user && session.role !== 'admin' && showLanding && (
         <LandingScreen 
           onLoginClick={() => {
             setShowLanding(false);
@@ -654,6 +670,47 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={showAuthRequiredModal}
+        onClose={() => setShowAuthRequiredModal(false)}
+        title={<span className="text-xl font-black bg-gradient-to-r from-red-500 to-indigo-600 bg-clip-text text-transparent">အသုံးပြုရန် အကောင့်ဝင်ပါ</span>}
+        maxWidth="max-w-sm"
+        hideBottomClose={true}
+      >
+        <div className="space-y-6 text-center py-4">
+          <div className="w-16 h-16 bg-red-50 dark:bg-red-950/30 rounded-full flex items-center justify-center mx-auto text-red-500 shadow-lg shadow-red-100 dark:shadow-none">
+            <Shield size={32} />
+          </div>
+          
+          <p className="text-base font-bold text-gray-800 dark:text-gray-200 leading-relaxed px-2">
+            သက်တမ်းရှိသောAccount ဝင်ထားမှသာအသုံးပြုနိုင်ပါသည်
+          </p>
+
+          <div className="grid grid-cols-2 gap-4 pt-4">
+            <Button
+              onClick={() => {
+                setShowAuthRequiredModal(false);
+                setShowLoginModal(true);
+              }}
+              variant="primary"
+              className="w-full py-3 font-bold rounded-xl text-center"
+            >
+              Login
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowAuthRequiredModal(false);
+                navigateTo('pricing');
+              }}
+              className="w-full py-3 font-bold rounded-xl text-center"
+            >
+              Buy Plan
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={showLoginModal}
