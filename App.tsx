@@ -861,7 +861,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="text-center space-y-0.5">
-            <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Smart Creator Tools</h2>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight" style={{ fontFamily: 'A09_Khit, sans-serif' }}>Smart Creator Tools</h2>
             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em]">Designed and Developed</p>
             <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">By KC Team</p>
           </div>
@@ -966,7 +966,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFDF00] via-[#48E5C2] to-[#FF3E6C] bg-clip-text text-transparent drop-shadow-[0_1.5px_4px_rgba(0,0,0,0.15)] hover:scale-105 transition-transform duration-300 select-none">{settings.appLogo}</span>
+                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFDF00] via-[#48E5C2] to-[#FF3E6C] bg-clip-text text-transparent drop-shadow-[0_1.5px_4px_rgba(0,0,0,0.15)] hover:scale-105 transition-transform duration-300 select-none" style={{ fontFamily: 'A09_Khit, sans-serif' }}>{settings.appLogo}</span>
               </div>
             </div>
           </div>
