@@ -966,7 +966,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <span className="font-bold text-xl tracking-tight text-gray-900 dark:text-gray-100">{settings.appLogo}</span>
+                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFDF00] via-[#48E5C2] to-[#FF3E6C] bg-clip-text text-transparent drop-shadow-[0_1.5px_4px_rgba(0,0,0,0.15)] hover:scale-105 transition-transform duration-300 select-none">{settings.appLogo}</span>
               </div>
             </div>
           </div>
@@ -1107,11 +1107,33 @@ const Home: React.FC<{
   return (
     <div className="space-y-12">
       <div className="text-center max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-5xl font-black mb-2 tracking-tighter leading-normal px-4 py-2 bg-clip-text text-transparent bg-gradient-to-b from-[#FFD700] via-[#FDB931] to-[#9f7928]"
+        <h1 className="text-3xl md:text-5xl font-black mb-2 tracking-tight leading-normal px-4 py-2 hover:scale-[1.01] transition-transform duration-350 select-none"
             style={{ 
-              filter: 'drop-shadow(2px 2px 0px #b8860b) drop-shadow(4px 4px 4px rgba(0,0,0,0.15))',
+              fontFamily: 'A04_Donut, "Noto Sans Myanmar", sans-serif',
             }}>
-          {settings.welcomeMessage}
+          {(() => {
+            const msg = settings.welcomeMessage;
+            const index = msg.lastIndexOf("ပါ");
+            if (index !== -1) {
+              const before = msg.substring(0, index);
+              const after = msg.substring(index);
+              return (
+                <>
+                  <span className="bg-gradient-to-r from-[#FFDF00] via-[#48E5C2] to-[#FF3E6C] bg-clip-text text-transparent">
+                    {before}
+                  </span>
+                  <span className="text-[#FF003C] font-extrabold">
+                    {after}
+                  </span>
+                </>
+              );
+            }
+            return (
+              <span className="bg-gradient-to-r from-[#FFDF00] via-[#48E5C2] to-[#FF3E6C] bg-clip-text text-transparent">
+                {msg}
+              </span>
+            );
+          })()}
         </h1>
         <div className="mb-6 flex flex-col items-center">
           <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Designed and Developed</p>

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { getAIClient } from '../services/gemini';
 import { Card, Button, TextArea, Input, Select, ProgressBar, TutorialButton } from '../components/Shared';
-import { Play, Pause, Download, Trash2, History, ArrowLeft, Mic, Volume2, Users, User, StopCircle, Loader2, X, RotateCcw } from 'lucide-react';
+import { Play, Pause, Download, Trash2, History, ArrowLeft, Mic, Volume2, Users, User, StopCircle, Loader2, X, RotateCcw, FileText, Copy } from 'lucide-react';
 import { FeatureType, ProcessingTask, UserSession } from '../types';
 import { KCAudioPlayer } from '@/features/KCAudioPlayer';
 import { GeminiAudioPlayer } from '../components/GeminiAudioPlayer';
@@ -153,6 +153,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
 
   const [history, setHistory] = useState<VoiceHistory[]>([]);
   const [currentAudio, setCurrentAudio] = useState<{ url: string; id: string } | null>(null);
+  const [selectedTextItem, setSelectedTextItem] = useState<VoiceHistory | null>(null);
 
   const HISTORY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
@@ -650,6 +651,99 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
     saveHistory(history.filter(h => h.id !== id));
   };
 
+  const handlePlayHistory = async (item: VoiceHistory) => {
+    let url = '';
+    if (item.kcResult) {
+      url = item.kcResult.audio_url;
+    } else {
+      const blob = base64ToBlob(item.audioData, 'audio/wav');
+      url = URL.createObjectURL(blob);
+    }
+
+    if (currentAudio?.id === item.id) {
+      if (isPlaying) {
+        if (audioRef.current) audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        setIsPlaying(true);
+        if (audioRef.current) {
+          try {
+            playPromiseRef.current = audioRef.current.play();
+            await playPromiseRef.current;
+          } catch (e) {
+            setIsPlaying(false);
+          } finally {
+            playPromiseRef.current = null;
+          }
+        }
+      }
+    } else {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setCurrentAudio({ url, id: item.id });
+      setIsPlaying(true);
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
+          setCurrentAudio(null);
+        };
+        try {
+          playPromiseRef.current = audioRef.current.play();
+          await playPromiseRef.current;
+        } catch (e) {
+          setIsPlaying(false);
+        } finally {
+          playPromiseRef.current = null;
+        }
+      }
+    }
+  };
+
+  const handleDownloadKCAudio = async (item: VoiceHistory, ext: 'wav' | 'mp3') => {
+    if (!item.kcResult) return;
+    try {
+      const url = item.kcResult.audio_url;
+      let name = item.title || 'KC_Voice';
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${name}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error(e);
+      toast.error('Download audio failed');
+    }
+  };
+
+  const handleDownloadKCSRT = async (item: VoiceHistory) => {
+    if (!item.kcResult || !item.kcResult.srt_url) return;
+    try {
+      const url = item.kcResult.srt_url;
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `${item.title || 'KC_Voice'}.srt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error(e);
+      toast.error('Download SRT failed');
+    }
+  };
+
   const addDialogBlock = () => {
     const nextSpeaker = (dialogBlocks.length % 3 === 0) ? 'Speaker 1' : (dialogBlocks.length % 3 === 1 ? 'Speaker 2' : 'Speaker 3');
     setDialogBlocks([...dialogBlocks, { 
@@ -1117,45 +1211,43 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 mt-4">
-              {geminiResult && !activeGeminiTask ? (
-                <div className="w-full">
-                  <GeminiAudioPlayer 
-                    audioUrl={geminiResult.audio_url}
-                    fileName={geminiResult.fileName}
-                    onDelete={() => setGeminiResult(null)}
-                  />
-                </div>
-              ) : (
-                <div className="flex-grow"></div>
-              )}
+            {/* Result Area for Gemini Voice (renders below the text input, exactly like KC voice) */}
+            {geminiResult && !activeGeminiTask && (
+              <div className="mt-4 w-full">
+                <GeminiAudioPlayer 
+                  audioUrl={geminiResult.audio_url}
+                  fileName={geminiResult.fileName}
+                  onDelete={() => setGeminiResult(null)}
+                />
+              </div>
+            )}
 
-              {!geminiResult && (
-                <Button
-                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      if (!activeGeminiTask && !isCheckingUsage) handleRun();
-                    }}
-                  variant={activeGeminiTask ? 'danger' : 'gradient'}
-                  className="w-auto px-6 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all shrink-0 rounded-full"
-                  disabled={isPreviewing !== null || isCheckingUsage}
-                >
-                  {activeGeminiTask ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" /> {timerCount}s
-                    </>
-                  ) : isCheckingUsage ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" /> Checking...
-                    </>
-                  ) : (
-                    <>
-                      <Play size={18} fill="currentColor" /> Generate
-                    </>
-                  )}
-                </Button>
-              )}
+            {/* Always visible Generate button container */}
+            <div className="flex items-center justify-end gap-4 mt-4">
+              <Button
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!activeGeminiTask && !isCheckingUsage) handleRun();
+                  }}
+                variant={activeGeminiTask ? 'danger' : 'gradient'}
+                className="w-auto px-6 py-3 text-sm font-black uppercase tracking-[0.2em] transition-all shrink-0 rounded-full animate-in fade-in"
+                disabled={isPreviewing !== null || isCheckingUsage}
+              >
+                {activeGeminiTask ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> {timerCount}s
+                  </>
+                ) : isCheckingUsage ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Checking...
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} fill="currentColor" /> Generate
+                  </>
+                )}
+              </Button>
             </div>
           </>
         ) : (
@@ -1562,42 +1654,85 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                   </div>
                 </div>
                 {item.kcResult ? (
-                  <div className="w-full sm:w-auto">
-                    <KCAudioPlayer 
-                      audioUrl={item.kcResult.audio_url} 
-                      srtUrl={item.kcResult.srt_url} 
-                      fileName={item.kcResult.fileName || 'KC_Voice'}
-                      onDelete={() => handleDelete(item.id)}
-                    />
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button 
+                      className="p-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-200/50 dark:border-gray-600/50 text-gray-700 dark:text-gray-200 transition-colors flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider"
+                      onClick={() => setSelectedTextItem(item)}
+                      title="Show Text"
+                    >
+                      <FileText size={14} />
+                      <span>Text</span>
+                    </button>
+                    <button 
+                      className={`p-2 h-9 w-9 rounded-lg transition-colors flex items-center justify-center border ${
+                        currentAudio?.id === item.id && isPlaying
+                          ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700'
+                          : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border-gray-200/50 dark:border-gray-600/50 text-gray-700 dark:text-gray-200'
+                      }`}
+                      onClick={() => handlePlayHistory(item)}
+                      title={currentAudio?.id === item.id && isPlaying ? "Pause" : "Play Audio"}
+                    >
+                      {currentAudio?.id === item.id && isPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
+                    </button>
+                    <button 
+                      className="p-2 h-9 w-9 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors flex items-center justify-center border border-gray-200/50 dark:border-gray-600/50"
+                      onClick={() => handleDownloadKCAudio(item, 'mp3')}
+                      title="Download MP3"
+                    >
+                      <Download size={16} />
+                    </button>
+                    {item.kcResult.srt_url && (
+                      <button 
+                        className="p-2 h-9 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 transition-colors flex items-center justify-center border border-indigo-100 dark:border-indigo-800 text-xs font-bold uppercase tracking-wider"
+                        onClick={() => handleDownloadKCSRT(item)}
+                        title="Download Subtitles (SRT)"
+                      >
+                        SRT
+                      </button>
+                    )}
+                    <button 
+                      className="p-2 h-9 w-9 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/25 transition-colors flex items-center justify-center"
+                      onClick={() => handleDelete(item.id)}
+                      title="Delete"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                    <Button 
-                      variant="secondary" 
-                      className="p-2 h-9 w-9 rounded-lg"
-                      onClick={() => {
-                        const blob = base64ToBlob(item.audioData, 'audio/wav');
-                        const url = URL.createObjectURL(blob);
-                        setCurrentAudio({ url, id: item.id });
-                        playAudio(url);
-                      }}
+                    <button 
+                      className="p-2 h-9 px-3 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border border-gray-200/50 dark:border-gray-600/50 text-gray-700 dark:text-gray-200 transition-colors flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wider"
+                      onClick={() => setSelectedTextItem(item)}
+                      title="Show Text"
                     >
-                      <Play size={16} fill="currentColor" />
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      className="p-2 h-9 w-9 rounded-lg"
+                      <FileText size={14} />
+                      <span>Text</span>
+                    </button>
+                    <button 
+                      className={`p-2 h-9 w-9 rounded-lg transition-colors flex items-center justify-center border ${
+                        currentAudio?.id === item.id && isPlaying
+                          ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700'
+                          : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 border-gray-200/50 dark:border-gray-600/50 text-gray-700 dark:text-gray-200'
+                      }`}
+                      onClick={() => handlePlayHistory(item)}
+                      title={currentAudio?.id === item.id && isPlaying ? "Pause" : "Play Audio"}
+                    >
+                      {currentAudio?.id === item.id && isPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
+                    </button>
+                    <button 
+                      className="p-2 h-9 w-9 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 transition-colors flex items-center justify-center border border-gray-200/50 dark:border-gray-600/50"
                       onClick={() => handleDownload(item)}
+                      title="Download WAV"
                     >
                       <Download size={16} />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      className="p-2 h-9 w-9 rounded-lg text-red-500 hover:bg-red-50"
+                    </button>
+                    <button 
+                      className="p-2 h-9 w-9 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/25 transition-colors flex items-center justify-center"
                       onClick={() => handleDelete(item.id)}
+                      title="Delete"
                     >
                       <Trash2 size={16} />
-                    </Button>
+                    </button>
                   </div>
                 )}
               </Card>
@@ -1605,6 +1740,59 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
           )}
         </div>
       </div>
+
+      {selectedTextItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl w-full max-w-lg shadow-2xl p-6 relative flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-[0.15em] flex items-center gap-2">
+                <FileText size={16} className="text-indigo-600" /> Generated Text
+              </h3>
+              <button 
+                onClick={() => setSelectedTextItem(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Title / Info */}
+            <div className="mt-4">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Title:</h4>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{selectedTextItem.title}</p>
+            </div>
+
+            {/* Scrollable Text Body (Scrollbar Hidden) */}
+            <div className="mt-4 flex-grow overflow-y-auto rounded-2xl bg-gray-50 dark:bg-gray-950 p-4 border border-gray-100 dark:border-gray-800 max-h-[40vh] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed select-text font-medium">{selectedTextItem.text}</p>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-6 flex gap-3 justify-end">
+              <Button 
+                variant="secondary"
+                onClick={() => setSelectedTextItem(null)}
+                className="text-xs font-bold uppercase tracking-wider px-4 h-9 rounded-lg"
+              >
+                Close
+              </Button>
+              <Button
+                variant="gradient"
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedTextItem.text);
+                  toast.success('စာသားကို Clipboard သို့ ကူးယူပြီးပါပြီ။');
+                }}
+                className="text-xs font-black uppercase tracking-wider px-5 h-9 rounded-full flex items-center gap-1.5"
+              >
+                <Copy size={14} />
+                <span>Copy Text</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
