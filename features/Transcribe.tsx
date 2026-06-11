@@ -290,7 +290,7 @@ const Transcribe: React.FC<Props> = ({
               <div className="flex flex-col gap-6">
                 <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6">
                   <Input 
-                    label="Video Link (YouTube, TikTok, Facebook)" 
+                    label="Video Link (YouTube only)" 
                     placeholder="Paste link here..." 
                     value={ytUrl} 
                     onChange={setYtUrl} 
