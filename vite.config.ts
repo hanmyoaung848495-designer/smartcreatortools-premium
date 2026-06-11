@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     
     // Check if custom logo exists
     const hasCustomLogo = fs.existsSync(path.resolve('.', 'public/logo.png'));
-    const iconSrc = hasCustomLogo ? 'logo.png' : 'icon.svg';
+    const iconSrc = hasCustomLogo ? '/logo.png' : '/icon.svg';
     const iconType = hasCustomLogo ? 'image/png' : 'image/svg+xml';
 
     return {
@@ -25,23 +25,29 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
+          manifestFilename: 'manifest.json',
           includeAssets: ['icon.svg', 'logo.png'],
           manifest: {
             name: 'Smart Creator Tools',
-            short_name: 'Smart Creator Tools',
+            short_name: 'Smart Creator',
             description: 'AI tools for creators',
-            theme_color: '#ffffff',
+            theme_color: '#4f46e5',
             background_color: '#ffffff',
+            display: 'standalone',
+            start_url: '/',
+            id: '/',
             icons: [
               {
                 src: iconSrc,
                 sizes: '192x192',
-                type: iconType
+                type: iconType,
+                purpose: 'any'
               },
               {
                 src: iconSrc,
                 sizes: '512x512',
-                type: iconType
+                type: iconType,
+                purpose: 'any'
               }
             ]
           },

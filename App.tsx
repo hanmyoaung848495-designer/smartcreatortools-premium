@@ -919,7 +919,7 @@ const App: React.FC = () => {
           </div>
           
           <div className="text-center space-y-0.5">
-            <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight" style={{ fontFamily: 'A09_Khit, sans-serif' }}>Smart Creator Tools</h2>
+            <h2 className="text-xl font-black tracking-tight bg-gradient-to-r from-[#FFC107] via-[#0ea5e9] to-[#ec4899] bg-clip-text text-transparent select-none animate-fade-in" style={{ fontFamily: 'A09_Khit, sans-serif', filter: 'drop-shadow(1px 0px 0px #000) drop-shadow(-1px 0px 0px #000) drop-shadow(0px 1px 0px #000) drop-shadow(0px -1px 0px #000)' }}>Smart Creator Tools</h2>
             <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em]">Designed and Developed</p>
             <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">By KC Team</p>
           </div>
@@ -1076,7 +1076,7 @@ const App: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFDF00] via-[#48E5C2] to-[#FF3E6C] bg-clip-text text-transparent drop-shadow-[0_1.5px_4px_rgba(0,0,0,0.15)] hover:scale-105 transition-transform duration-300 select-none" style={{ fontFamily: 'A09_Khit, sans-serif' }}>{settings.appLogo}</span>
+                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFC107] via-[#0ea5e9] to-[#ec4899] bg-clip-text text-transparent hover:scale-105 transition-transform duration-300 select-none" style={{ fontFamily: 'A09_Khit, sans-serif', filter: 'drop-shadow(1px 0px 0px #000) drop-shadow(-1px 0px 0px #000) drop-shadow(0px 1px 0px #000) drop-shadow(0px -1px 0px #000)' }}>{settings.appLogo}</span>
               </div>
             </div>
           </div>
@@ -1257,7 +1257,12 @@ const Home: React.FC<{
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent text-sm md:text-lg font-black uppercase tracking-[0.15em] px-4"
+              className={`bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent font-black uppercase tracking-[0.15em] px-4 ${
+                messages[messageIndex] === "အသက်ရှူတိုင်းငွေဝင်ပါစေ" ? "text-2xl md:text-4xl" : "text-sm md:text-lg"
+              }`}
+              style={{
+                fontFamily: messages[messageIndex] === "အသက်ရှူတိုင်းငွေဝင်ပါစေ" ? 'Aka07Bold, sans-serif' : undefined
+              }}
             >
               {messages[messageIndex]}
             </motion.p>
