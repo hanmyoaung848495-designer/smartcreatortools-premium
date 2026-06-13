@@ -308,9 +308,9 @@ function getRotatingApiKey(baseName: string): string[] {
 
 async function sendAdminTelegramAlert(messageText: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chat = process.env.TELEGRAM_CHAT_ID;
+  const chat = process.env.TELEGRAM_ERRORS_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) {
-    console.error("[Telegram Alert] Missing credentials (TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)");
+    console.error("[Telegram Alert] Missing credentials (TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID/TELEGRAM_ERRORS_CHAT_ID)");
     return;
   }
   try {
@@ -323,9 +323,9 @@ async function sendAdminTelegramAlert(messageText: string) {
         parse_mode: "HTML"
       })
     });
-    console.log("[Telegram Alert] Alert sent successfully to admin.");
+    console.log(`[Telegram Alert] Alert sent successfully to chat ID: ${chat}`);
   } catch (err) {
-    console.error("[Telegram Alert] Failed to send alert message to admin:", err);
+    console.error("[Telegram Alert] Failed to send alert message:", err);
   }
 }
 
@@ -550,7 +550,88 @@ app.get(/^\/(api\/)?kc-tts\/proxy$/, async (req, res) => {
   }
 });
 
+function cleanControlCharacters(str: any, keepNewlines = false): any {
+  if (typeof str !== 'string') return str;
+  if (keepNewlines) {
+    // Keep 0x0A (\n), 0x0D (\r), and 0x09 (\t), remove other 0x00-0x1F, 0x7F, and 0x80-0x9F
+    return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+  } else {
+    // Remove all 0x00-0x1F, 0x7F, and 0x80-0x9F
+    return str.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+  }
+}
+
+function sanitizeKCText(str: string): string {
+  if (typeof str !== 'string') return str;
+  
+  // 1. Convert speaker tags
+  let cleaned = str
+    .replace(/\[\s*[cC]1\s*\]/g, '[V1]')
+    .replace(/\[\s*[cC]2\s*\]/g, '[V2]')
+    .replace(/\[\s*[cC]3\s*\]/g, '[V3]')
+    .replace(/\[\s*[vV]1\s*\]/g, '[V1]')
+    .replace(/\[\s*[vV]2\s*\]/g, '[V2]')
+    .replace(/\[\s*[vV]3\s*\]/g, '[V3]');
+
+  // 2. Temporarily protect valid speaker tag patterns (exact [V1], [V2], [V3])
+  cleaned = cleaned
+    .replace(/\[V1\]/g, '___TAG_V1___')
+    .replace(/\[V2\]/g, '___TAG_V2___')
+    .replace(/\[V3\]/g, '___TAG_V3___');
+
+  // 3. Strip all single quotes, double quotes, smart quotes, backticks, backslashes, parentheses, braces, and remaining square brackets
+  cleaned = cleaned
+    .replace(/[\"\"“”]/g, '')     // Double quotes
+    .replace(/[\'\'‘’`]/g, '')     // Single quotes & backticks & smart single quotes
+    .replace(/\\/g, '')          // Backslashes
+    .replace(/[\(\)\{\}]/g, '')  // Parentheses and braces
+    .replace(/[\[\]]/g, '');     // Any remaining square brackets
+
+  // 4. Restore the protected speaker tags
+  cleaned = cleaned
+    .replace(/___TAG_V1___/g, '[V1]')
+    .replace(/___TAG_V2___/g, '[V2]')
+    .replace(/___TAG_V3___/g, '[V3]');
+
+  // 5. Clean control characters and normalize whitespaces
+  cleaned = cleaned
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
+    .replace(/[\r\n]+/g, ' ')             // Convert newlines/carriage returns to spaces
+    .replace(/\s+/g, ' ')                 // Normalize multiple spaces
+    .trim();
+
+  return cleaned;
+}
+
+function sanitizeKCPronunciationRules(str: string): string {
+  if (typeof str !== 'string') return str;
+  
+  let cleaned = str
+    .replace(/[\"\"“”]/g, '')       // Double quotes
+    .replace(/[\'\'‘’`]/g, '')       // Single quotes & backticks & smart single quotes
+    .replace(/\\/g, '')            // Backslashes
+    .replace(/[\(\)\{\}\[\]]/g, '') // All brackets, braces, parentheses
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ''); // Control characters except newlines
+
+  return cleaned;
+}
+
 app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
+  // Sanitize incoming payload string values against invalid JSON / control characters (C0 and C1 classes)
+  if (req.body && typeof req.body === 'object') {
+    if (typeof req.body.text === 'string') {
+      req.body.text = sanitizeKCText(req.body.text);
+    }
+    if (typeof req.body.pronunciation_rules === 'string') {
+      req.body.pronunciation_rules = sanitizeKCPronunciationRules(req.body.pronunciation_rules);
+    }
+    for (const key of Object.keys(req.body)) {
+      if (key !== 'text' && key !== 'pronunciation_rules' && typeof req.body[key] === 'string') {
+        req.body[key] = cleanControlCharacters(req.body[key], false);
+      }
+    }
+  }
+
   const ttsPairs: { index: number, url: string, key: string }[] = [];
   
   // 1 to 5 Pairs
@@ -672,7 +753,7 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
   }
 
   return res.status(500).json({ 
-    error: "Server error ဖြစ်ပေါ်နေပါသဖြင့် Admin ထံအကြောင်းကြားပေးထားပါတယ်" 
+    error: `Server error ဖြစ်ပေါ်နေပါသဖြင့် Admin ထံအကြောင်းကြားပေးထားပါတယ်. Details: ${lastError ? lastError.message : 'Unknown error'}` 
   });
 });
 

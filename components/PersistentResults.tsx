@@ -16,9 +16,20 @@ interface Props {
 const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onClearAll, onCopy, onDownload }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const filteredResults = activeType 
-    ? results.filter(r => r.type === activeType) 
-    : results;
+  const formatTimestamp = (timestamp: any) => {
+    if (!timestamp) return 'Recent';
+    try {
+      const d = new Date(timestamp);
+      if (isNaN(d.getTime())) return 'Recent';
+      return d.toLocaleString();
+    } catch (e) {
+      return 'Recent';
+    }
+  };
+
+  const filteredResults = (activeType 
+    ? results.filter(r => r && typeof r === 'object' && r.type === activeType) 
+    : results.filter(r => r && typeof r === 'object')) as StoredResult[];
 
   if (filteredResults.length === 0) return null;
 
@@ -77,9 +88,9 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
                      result.type === 'text-to-srt' ? '📄' : '📝'}
                   </div>
                   <div className="truncate max-w-[200px] sm:max-w-md">
-                    <h4 className="font-bold text-gray-900 dark:text-gray-100 leading-tight truncate">{result.title}</h4>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 leading-tight truncate">{result.title || 'Untitled'}</h4>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tighter">
-                      {new Date(result.timestamp).toLocaleString()} • <span className="text-indigo-500 dark:text-indigo-400">{result.type.replace('-', ' ')}</span>
+                      {formatTimestamp(result.timestamp)} • <span className="text-indigo-500 dark:text-indigo-400">{result.type ? (typeof result.type === 'string' ? result.type.replace('-', ' ') : String(result.type)) : 'unknown'}</span>
                     </p>
                   </div>
                 </div>

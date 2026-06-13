@@ -77,6 +77,72 @@ const KC_STYLES = [
   { label: 'Angry', value: 'angry' }
 ];
 
+const cleanControlCharacters = (str: string, keepNewlines = false): string => {
+  if (typeof str !== 'string') return str;
+  if (keepNewlines) {
+    // Keep 0x0A (\n), 0x0D (\r), and 0x09 (\t), remove other 0x00-0x1F, 0x7F, and 0x80-0x9F
+    return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+  } else {
+    // Remove all 0x00-0x1F, 0x7F, and 0x80-0x9F
+    return str.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+  }
+};
+
+const sanitizeKCText = (str: string): string => {
+  if (typeof str !== 'string') return str;
+  
+  // 1. Convert speaker tags
+  let cleaned = str
+    .replace(/\[\s*[cC]1\s*\]/g, '[V1]')
+    .replace(/\[\s*[cC]2\s*\]/g, '[V2]')
+    .replace(/\[\s*[cC]3\s*\]/g, '[V3]')
+    .replace(/\[\s*[vV]1\s*\]/g, '[V1]')
+    .replace(/\[\s*[vV]2\s*\]/g, '[V2]')
+    .replace(/\[\s*[vV]3\s*\]/g, '[V3]');
+
+  // 2. Temporarily protect valid speaker tag patterns (exact [V1], [V2], [V3])
+  cleaned = cleaned
+    .replace(/\[V1\]/g, '___TAG_V1___')
+    .replace(/\[V2\]/g, '___TAG_V2___')
+    .replace(/\[V3\]/g, '___TAG_V3___');
+
+  // 3. Strip all single quotes, double quotes, smart quotes, backticks, backslashes, parentheses, braces, and remaining square brackets
+  cleaned = cleaned
+    .replace(/[\"\"“”]/g, '')     // Double quotes
+    .replace(/[\'\'‘’`]/g, '')     // Single quotes & backticks & smart single quotes
+    .replace(/\\/g, '')          // Backslashes
+    .replace(/[\(\)\{\}]/g, '')  // Parentheses and braces
+    .replace(/[\[\]]/g, '');     // Any remaining square brackets
+
+  // 4. Restore the protected speaker tags
+  cleaned = cleaned
+    .replace(/___TAG_V1___/g, '[V1]')
+    .replace(/___TAG_V2___/g, '[V2]')
+    .replace(/___TAG_V3___/g, '[V3]');
+
+  // 5. Clean control characters and normalize whitespaces
+  cleaned = cleaned
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
+    .replace(/[\r\n]+/g, ' ')             // Convert newlines/carriage returns to spaces
+    .replace(/\s+/g, ' ')                 // Normalize multiple spaces
+    .trim();
+
+  return cleaned;
+};
+
+const sanitizeKCPronunciationRules = (str: string): string => {
+  if (typeof str !== 'string') return str;
+  
+  let cleaned = str
+    .replace(/[\"\"“”]/g, '')       // Double quotes
+    .replace(/[\'\'‘’`]/g, '')       // Single quotes & backticks & smart single quotes
+    .replace(/\\/g, '')            // Backslashes
+    .replace(/[\(\)\{\}\[\]]/g, '') // All brackets, braces, parentheses
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ''); // Control characters except newlines
+
+  return cleaned;
+};
+
 const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, onRequireApiKey }) => {
   const [mode, setMode] = useState<'single' | 'multi'>('single');
   const [isDialogMode, setIsDialogMode] = useState(false);
@@ -199,12 +265,10 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
         if (key && val) customMap[key] = val;
     });
 
-    let processedText = kcText
-      .replace(/\[\s*[cC]1\s*\]/g, '[V1]')
-      .replace(/\[\s*[cC]2\s*\]/g, '[V2]')
-      .replace(/\[\s*[cC]3\s*\]/g, '[V3]');
-
+    let processedText = sanitizeKCText(kcText);
     processedText = applyPronunciation(processedText, customMap);
+
+    const cleanedPronunciationRules = sanitizeKCPronunciationRules(kcManualText);
 
     setKcLoading(true);
     setKcResult(null);
@@ -224,7 +288,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
           manual_pitch: kcPitch,
           manual_rate: kcRate,
           volume_boost: kcVolume,
-          pronunciation_rules: kcManualText
+          pronunciation_rules: cleanedPronunciationRules
         };
 
         const response = await fetch(apiUrl, {
@@ -1658,12 +1722,12 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
           <History size={16} className="text-indigo-600 dark:text-indigo-400" /> Generation History
         </h3>
         <div className="grid gap-4">
-          {history.length === 0 ? (
+          {!Array.isArray(history) || history.length === 0 ? (
             <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
               <p className="text-gray-400 text-sm italic">No history yet. Start generating voices!</p>
             </div>
           ) : (
-            history.map(item => (
+            history.filter(item => item && typeof item === 'object').map(item => (
               <Card key={item.id} className="p-4 flex flex-col sm:flex-row items-center gap-4 group">
                 <div className="flex w-full items-center gap-4">
                   <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0">
@@ -1673,10 +1737,19 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.title}</h4>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">
-                        {item.mode === 'single' ? 'Single' : 'Multi'} {item.voices ? `• ${item.voices.join(', ')}` : ''}
+                        {item.mode === 'single' ? 'Single' : 'Multi'} {Array.isArray(item.voices) ? `• ${item.voices.join(', ')}` : ''}
                       </span>
                       <span className="text-[10px] text-gray-300">•</span>
-                      <span className="text-[10px] text-gray-400">{new Date(item.timestamp).toLocaleString()}</span>
+                      <span className="text-[10px] text-gray-400">
+                        {(() => {
+                          if (!item.timestamp) return 'Recent';
+                          try {
+                            const d = new Date(item.timestamp);
+                            if (!isNaN(d.getTime())) return d.toLocaleString();
+                          } catch (e) {}
+                          return 'Recent';
+                        })()}
+                      </span>
                     </div>
                   </div>
                 </div>

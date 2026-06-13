@@ -272,11 +272,19 @@ const App: React.FC = () => {
   }, [session.user]);
 
   useEffect(() => {
-    localStorage.setItem('smart_creator_session', JSON.stringify(session));
+    try {
+      localStorage.setItem('smart_creator_session', JSON.stringify(session));
+    } catch (e) {
+      console.error("Failed to save session to localStorage", e);
+    }
   }, [session]);
 
   useEffect(() => {
-    localStorage.setItem('smart_creator_results', JSON.stringify(results));
+    try {
+      localStorage.setItem('smart_creator_results', JSON.stringify(results));
+    } catch (e) {
+      console.error("Failed to save results to localStorage", e);
+    }
   }, [results]);
 
   const addResult = useCallback((result: Omit<StoredResult, 'id' | 'timestamp'>) => {
@@ -307,26 +315,47 @@ const App: React.FC = () => {
   };
 
   const copyResult = useCallback((content: string) => {
-    navigator.clipboard.writeText(content);
-    toast.success('Copied to clipboard!', {
-      icon: '📋',
-      style: { borderRadius: '1rem' }
-    });
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(content || '');
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = content || '';
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      toast.success('Copied to clipboard!', {
+        icon: '📋',
+        style: { borderRadius: '1rem' }
+      });
+    } catch (e) {
+      console.error("Failed to copy: ", e);
+      toast.error('Failed to copy. Please select and copy manually.');
+    }
   }, []);
 
   const executeDownload = (result: StoredResult) => {
-    const blob = new Blob([result.content], { type: result.mimeType || 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = result.fileName || `result_${result.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setDownloadedIds(prev => new Set(prev).add(result.id));
-    toast.success('Download started!', {
-      icon: '📥',
-      style: { borderRadius: '1rem' }
-    });
+    try {
+      const blob = new Blob([result.content || ''], { type: result.mimeType || 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = result.fileName || `result_${result.id || 'file'}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setDownloadedIds(prev => new Set(prev).add(result.id));
+      toast.success('Download started!', {
+        icon: '📥',
+        style: { borderRadius: '1rem' }
+      });
+    } catch (e) {
+      console.error("Failed to download file:", e);
+      toast.error('Failed to download. Please copy the text instead.');
+    }
   };
 
   const downloadResult = useCallback((result: StoredResult) => {
