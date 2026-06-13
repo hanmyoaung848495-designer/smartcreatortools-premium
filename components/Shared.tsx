@@ -19,17 +19,17 @@ export const UsageCounter: React.FC<{ user?: UserProfile; limits: { app: number;
     <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900 px-4 py-2 rounded-xl mb-4">
       <div className="flex items-center gap-1.5">
         <span className="text-blue-600 dark:text-blue-400">App API:</span>
-        <span className="text-gray-900 dark:text-gray-100">{user.usage.appApiUsedToday} / {limits.app}</span>
+        <span className="text-gray-900 dark:text-gray-100">{(user.usage?.appApiUsedToday) ?? 0} / {limits.app}</span>
       </div>
       <div className="w-px h-3 bg-gray-200 dark:bg-gray-700" />
       <div className="flex items-center gap-1.5">
         <span className="text-blue-600 dark:text-blue-400">Own API:</span>
-        <span className="text-gray-900 dark:text-gray-100">{user.usage.ownApiUsedToday} / {limits.own}</span>
+        <span className="text-gray-900 dark:text-gray-100">{(user.usage?.ownApiUsedToday) ?? 0} / {limits.own}</span>
       </div>
       <div className="w-px h-3 bg-gray-200 dark:bg-gray-700" />
       <div className="flex items-center gap-1.5">
         <span className="text-blue-600 dark:text-blue-400">Credits:</span>
-        <span className="text-gray-900 dark:text-gray-100">{user.credits}</span>
+        <span className="text-gray-900 dark:text-gray-100">{user.credits ?? 0}</span>
       </div>
     </div>
   );
@@ -231,12 +231,16 @@ export const TextArea: React.FC<{
   placeholder?: string;
   rows?: number;
   className?: string;
-}> = ({ label, value, onChange, placeholder, rows = 4, className = "" }) => (
+  onFocus?: () => void;
+  onBlur?: () => void;
+}> = ({ label, value, onChange, placeholder, rows = 4, className = "", onFocus, onBlur }) => (
   <div className={`flex flex-col gap-1.5 ${className}`}>
     {label && <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">{label}</label>}
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onFocus={onFocus}
+      onBlur={onBlur}
       placeholder={placeholder}
       rows={rows}
       className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none bg-white dark:bg-gray-800 dark:text-gray-100"

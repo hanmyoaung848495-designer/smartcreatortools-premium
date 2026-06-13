@@ -174,7 +174,15 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
     try {
       setIsCheckingUsage(true);
       const { checkAndIncrementUsage } = await import('../services/usageService');
-      const { allowed, message } = await checkAndIncrementUsage('ai_voice', session.role !== 'free' ? (session.user?.id || 'logged_in') : null);
+      const { allowed, message } = await checkAndIncrementUsage(
+        'ai_voice', 
+        session.role !== 'free' ? (session.user?.id || 'logged_in') : null,
+        false,
+        null,
+        null,
+        false,
+        session.role === 'admin'
+      );
       
       if (!allowed) {
         toast.error(message || 'Daily limit exceeded');
@@ -233,7 +241,12 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
           if (isCanceled()) return;
           const errorText = await response.text();
           console.error('API Error Response:', errorText);
-          throw new Error(`Generation failed: ${response.statusText} - ${errorText}`);
+          let displayError = errorText;
+          try {
+            const parsed = JSON.parse(errorText);
+            if (parsed.error) displayError = parsed.error;
+          } catch (e) {}
+          throw new Error(displayError);
         }
         const data = await response.json();
         
@@ -416,7 +429,15 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
     try {
       setIsCheckingUsage(true);
       const { checkAndIncrementUsage } = await import('../services/usageService');
-      const { allowed, message } = await checkAndIncrementUsage('ai_voice', session.role !== 'free' ? (session.user?.id || 'logged_in') : null);
+      const { allowed, message } = await checkAndIncrementUsage(
+        'ai_voice', 
+        session.role !== 'free' ? (session.user?.id || 'logged_in') : null,
+        false,
+        null,
+        null,
+        false,
+        session.role === 'admin'
+      );
       
       if (!allowed) {
         toast.error(message || 'Daily limit exceeded');
@@ -817,7 +838,13 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
       });
 
       if (!response.ok) {
-        toast.error(`Preview failed`);
+        const errorText = await response.text();
+        let displayError = 'Preview failed';
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed.error) displayError = parsed.error;
+        } catch(e){}
+        toast.error(displayError);
         setIsPreviewing(null);
         return;
       }
@@ -1632,14 +1659,14 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
         </h3>
         <div className="grid gap-4">
           {history.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-gray-200">
+            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-3xl border border-dashed border-gray-200 dark:border-gray-700">
               <p className="text-gray-400 text-sm italic">No history yet. Start generating voices!</p>
             </div>
           ) : (
             history.map(item => (
               <Card key={item.id} className="p-4 flex flex-col sm:flex-row items-center gap-4 group">
                 <div className="flex w-full items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0">
                     <Volume2 size={20} />
                   </div>
                   <div className="flex-grow min-w-0">

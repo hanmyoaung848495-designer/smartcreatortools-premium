@@ -169,6 +169,22 @@
             opacity: 1;
         }
 
+        .tool-card-gradient:focus-within::before {
+            display: none !important;
+            animation: none !important;
+            opacity: 0 !important;
+        }
+
+        .tool-card-gradient:focus-within {
+            border: 2px solid #f3f4f6 !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .dark .tool-card-gradient:focus-within {
+            border: 2px solid #374151 !important;
+        }
+
         .tool-card-gradient-active::before {
             opacity: 1 !important;
             background: conic-gradient(

@@ -54,8 +54,13 @@ export const checkAndIncrementUsage = async (
   isLink?: boolean,
   linkTranscribeExpiry?: number | null,
   accountExpiredDate?: number | null,
-  isLifetime?: boolean
+  isLifetime?: boolean,
+  isAdmin?: boolean
 ): Promise<{ allowed: boolean; remaining: number; message?: string }> => {
+  if (isAdmin) {
+    return { allowed: true, remaining: 999 };
+  }
+
   if (!supabase) return { allowed: true, remaining: 99 }; // Fallback if no DB
 
   // Validate account expiry first for logged in users

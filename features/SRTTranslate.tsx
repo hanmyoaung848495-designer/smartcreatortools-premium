@@ -129,7 +129,7 @@ const SRTTranslate: React.FC<Props> = ({
           <div className="flex flex-col items-center py-12 gap-6">
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Translating SRT...</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Translating SRT...</h3>
               <p className="text-gray-500 italic">Maintaining timestamps precisely...</p>
             </div>
             <div className="w-full max-w-md">

@@ -42,12 +42,12 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
 
   return (
     <div className="mt-12 space-y-6 animate-in fade-in slide-in-from-bottom-6 duration-700">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 pb-4 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <span>🕒</span> Recent {activeType ? 'Results' : 'Activity'}
           </h3>
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-gray-100 px-2 py-0.5 rounded-md">
+          <span className="text-[10px] text-gray-400 dark:text-gray-300 font-bold uppercase tracking-widest bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
             {filteredResults.length} Items
           </span>
         </div>
@@ -56,7 +56,7 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
           <Button 
             variant="ghost" 
             onClick={onClearAll} 
-            className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50"
+            className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
           >
             🗑️ Clear All History
           </Button>
@@ -65,11 +65,11 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
 
       <div className="space-y-4">
         {filteredResults.map((result) => (
-          <Card key={result.id} className="border border-gray-100 hover:border-indigo-100 transition-all shadow-sm">
+          <Card key={result.id} className="border border-gray-100 dark:border-gray-800 hover:border-indigo-100 dark:hover:border-indigo-900 transition-all shadow-sm">
             <div className="p-5">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 dark:text-indigo-400 rounded-xl flex items-center justify-center text-xl">
                     {result.type === 'transcribe' ? '🎙️' : 
                      result.type === 'translate' ? '🌐' : 
                      result.type === 'video-generator' ? '🎥' : 
@@ -77,9 +77,9 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
                      result.type === 'text-to-srt' ? '📄' : '📝'}
                   </div>
                   <div className="truncate max-w-[200px] sm:max-w-md">
-                    <h4 className="font-bold text-gray-900 leading-tight truncate">{result.title}</h4>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                      {new Date(result.timestamp).toLocaleString()} • <span className="text-indigo-500">{result.type.replace('-', ' ')}</span>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 leading-tight truncate">{result.title}</h4>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-tighter">
+                      {new Date(result.timestamp).toLocaleString()} • <span className="text-indigo-500 dark:text-indigo-400">{result.type.replace('-', ' ')}</span>
                     </p>
                   </div>
                 </div>
@@ -101,7 +101,7 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
                   <Button 
                     variant="ghost" 
                     onClick={() => handleDelete(result.id)} 
-                    className="text-[10px] font-bold h-7 px-2.5 uppercase tracking-tighter text-red-500 hover:bg-red-50 whitespace-nowrap"
+                    className="text-[10px] font-bold h-7 px-2.5 uppercase tracking-tighter text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 whitespace-nowrap"
                   >
                     🗑️ Delete
                   </Button>
@@ -109,7 +109,7 @@ const PersistentResults: React.FC<Props> = ({ results, activeType, onDelete, onC
               </div>
 
               {expandedId === result.id && (
-                <div className="mt-4 p-4 bg-slate-900 text-slate-300 rounded-xl font-mono text-xs overflow-auto max-h-[300px] leading-relaxed animate-in slide-in-from-top-2">
+                <div className="mt-4 p-4 bg-slate-900 dark:bg-slate-950 text-slate-300 dark:text-slate-200 rounded-xl font-mono text-xs overflow-auto max-h-[300px] leading-relaxed animate-in slide-in-from-top-2">
                   {result.content}
                 </div>
               )}

@@ -39,6 +39,7 @@ const Translate: React.FC<Props> = ({
   const [text, setText] = useState('');
   const [targetLang, setTargetLang] = useState('English');
   const [result, setResult] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
 
   const tasksRef = useRef<ProcessingTask[]>(tasks);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
@@ -95,12 +96,12 @@ const Translate: React.FC<Props> = ({
         </div>
       </div>
 
-      <Card className="p-8" isGradient={true}>
+      <Card className="p-8" isGradient={false}>
         {activeTask ? (
           <div className="flex flex-col items-center py-12 gap-6">
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Translation in Progress</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Translation in Progress</h3>
               <p className="text-gray-500 text-sm italic">Processing in the background...</p>
             </div>
             <div className="w-full max-w-md">
@@ -114,6 +115,8 @@ const Translate: React.FC<Props> = ({
               placeholder="Paste your text here to translate..." 
               value={text} 
               onChange={setText} 
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               rows={8}
             />
             

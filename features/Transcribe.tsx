@@ -79,7 +79,8 @@ const Transcribe: React.FC<Props> = ({
         false,
         session.user?.linkTranscribeExpiry,
         session.user?.expiredDate,
-        session.user?.isLifetime
+        session.user?.isLifetime,
+        session.role === 'admin'
       );
       
       if (!allowed) {
@@ -137,7 +138,8 @@ const Transcribe: React.FC<Props> = ({
         true,
         session.user?.linkTranscribeExpiry,
         session.user?.expiredDate,
-        session.user?.isLifetime
+        session.user?.isLifetime,
+        session.role === 'admin'
       );
       
       if (!allowed) {
@@ -220,6 +222,11 @@ const Transcribe: React.FC<Props> = ({
               break;
           }
           
+          if (err.message && (err.message.includes("API limit") || err.message.includes("အုပ်စု") || err.message.includes("မရပါ") || err.message.includes("အသုံးပြု၍မရနိုင်သေးပါ") || err.message.includes("အကြောင်းကြားပေးထားပါတယ်"))) {
+            userMsg = err.message;
+            errorTitle = "API Limit Reached";
+          }
+          
           setApiError({ status: err.status, message: userMsg, title: errorTitle });
         }
         throw err;
@@ -259,7 +266,7 @@ const Transcribe: React.FC<Props> = ({
           <div className="flex flex-col items-center py-12 gap-6">
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Transcribing File...</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Transcribing File...</h3>
               <p className="text-gray-500 text-sm italic">Our specialized AI is listening and transcribing the audio directly into text.</p>
             </div>
             <div className="w-full max-w-md">
@@ -270,7 +277,7 @@ const Transcribe: React.FC<Props> = ({
           <div className="flex flex-col items-center py-12 gap-6">
             <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Transcribing Video link...</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Transcribing Video link...</h3>
               <p className="text-gray-500 text-sm italic">Our specialized AI is extracting and transcribing the video content.</p>
             </div>
             <div className="w-full max-w-md">

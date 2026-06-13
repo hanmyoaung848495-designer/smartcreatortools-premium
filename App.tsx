@@ -219,7 +219,13 @@ const App: React.FC = () => {
           systemApiKey: apiKey,
           allApiKeys: allApiKeys,
           role: role || 'premium',
-          user: user,
+          user: user ? {
+            ...user,
+            usage: user.usage || { appApiUsedToday: 0, ownApiUsedToday: 0, lastResetDate: new Date().toDateString() },
+            history: user.history || [],
+            credits: user.credits || 0,
+            plan: user.plan || (role === 'admin' ? 'premium-plus' : 'premium')
+          } : undefined,
           adminAuth: (role === 'admin') ? { id: loginId, pass: loginPass } : undefined
         });
         setShowLoginModal(false);
@@ -358,7 +364,7 @@ const App: React.FC = () => {
       ...prev,
       user: prev.user ? {
         ...prev.user,
-        history: [record, ...prev.user.history].slice(0, 50)
+        history: [record, ...(prev.user.history || [])].slice(0, 50)
       } : undefined
     }));
   }, [session.user]);
@@ -391,11 +397,39 @@ const App: React.FC = () => {
           body: JSON.stringify({ username: session.user.username, deviceId })
         });
         if (response.ok) {
-          const { valid } = await response.json();
+          const { valid, user: updatedUser } = await response.json();
           if (!valid) {
             handleUpdateSession({ useCustomKey: true, role: 'free', systemApiKey: undefined, user: undefined, adminAuth: undefined });
             toast.error('Session expired, account expired, or device changed. Please login again.');
             if (activeFeature === 'admin') setActiveFeature('home');
+          } else if (updatedUser) {
+            setSession(prev => {
+              if (
+                prev.user &&
+                (prev.user.name !== updatedUser.name ||
+                prev.user.startDate !== updatedUser.startDate ||
+                prev.user.expiredDate !== updatedUser.expiredDate ||
+                prev.user.isLifetime !== updatedUser.isLifetime ||
+                prev.user.linkTranscribeExpiry !== updatedUser.linkTranscribeExpiry ||
+                prev.role !== updatedUser.role)
+              ) {
+                const refreshed = {
+                  ...prev,
+                  role: updatedUser.role || prev.role,
+                  user: {
+                    ...prev.user,
+                    name: updatedUser.name,
+                    startDate: updatedUser.startDate,
+                    expiredDate: updatedUser.expiredDate,
+                    isLifetime: updatedUser.isLifetime,
+                    linkTranscribeExpiry: updatedUser.linkTranscribeExpiry
+                  }
+                };
+                localStorage.setItem('smart_creator_session', JSON.stringify(refreshed));
+                return refreshed;
+              }
+              return prev;
+            });
           }
         }
       } catch (e) {

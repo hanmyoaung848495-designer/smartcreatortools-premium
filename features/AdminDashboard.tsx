@@ -69,7 +69,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/mngr-sec/users', {
         headers: getAdminHeaders()
       });
       if (response.ok) {
@@ -105,7 +105,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
   const fetchTutorials = async () => {
     setTutorialsLoading(true);
     try {
-      const response = await fetch('/api/admin/tutorials', {
+      const response = await fetch('/api/mngr-sec/tutorials', {
         headers: getAdminHeaders()
       });
       if (response.ok) {
@@ -183,7 +183,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/mngr-sec/users', {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({
@@ -230,7 +230,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
       const user = users.find(u => u.username === username);
       if (!user) return;
 
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/mngr-sec/users', {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({
@@ -256,7 +256,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
     try {
-      const response = await fetch(`/api/admin/users/${userToDelete.username}`, {
+      const response = await fetch(`/api/mngr-sec/users/${userToDelete.username}`, {
         method: 'DELETE',
         headers: getAdminHeaders()
       });
@@ -285,7 +285,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
   const handleSaveTutorial = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/admin/tutorials', {
+      const response = await fetch('/api/mngr-sec/tutorials', {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({
@@ -315,7 +315,7 @@ const AdminDashboard: React.FC<Props> = ({ onBack, session }) => {
   const handleDeleteTutorialConfirm = async () => {
     if (!tutorialToDelete) return;
     try {
-      const response = await fetch(`/api/admin/tutorials/${tutorialToDelete.id}`, {
+      const response = await fetch(`/api/mngr-sec/tutorials/${tutorialToDelete.id}`, {
         method: 'DELETE',
         headers: getAdminHeaders()
       });

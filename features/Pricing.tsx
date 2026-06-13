@@ -108,7 +108,7 @@ const Pricing: React.FC<PricingProps> = ({ onBack, onToggleMenu, session }) => {
   };
 
   const executePlanPurchase = () => {
-    window.open('https://t.me/kcteamofficialbot', '_blank');
+    window.open('https://t.me/kcstoreofficialbot', '_blank');
     setConfirmModal({ isOpen: false, planName: '' });
   };
     // Helper to keep Pricing clean

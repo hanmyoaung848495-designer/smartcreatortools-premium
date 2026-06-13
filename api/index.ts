@@ -306,6 +306,29 @@ function getRotatingApiKey(baseName: string): string[] {
   return keys;
 }
 
+async function sendAdminTelegramAlert(messageText: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chat = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chat) {
+    console.error("[Telegram Alert] Missing credentials (TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)");
+    return;
+  }
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chat,
+        text: messageText,
+        parse_mode: "HTML"
+      })
+    });
+    console.log("[Telegram Alert] Alert sent successfully to admin.");
+  } catch (err) {
+    console.error("[Telegram Alert] Failed to send alert message to admin:", err);
+  }
+}
+
 app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
   const { url } = req.body;
 
@@ -319,6 +342,7 @@ app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
   }
 
   let lastError: any;
+  let keyIndex = 1;
   for (const transcriptApiKey of keys) {
     try {
       console.log(`[YouTube Transcribe] Trying key rotation... URL: ${url}`);
@@ -333,17 +357,18 @@ app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        // If it's a 429 (Too many requests) or 402 (Payment required/Quota), try next key
-        if (response.status === 429 || response.status === 402) {
-          console.warn(`[YouTube Transcribe] Key failed with status ${response.status}. Trying next key...`);
-          lastError = { status: response.status, data: errorData };
-          continue;
-        }
+        const status = response.status;
+        const errText = errorData.error || errorData.detail || `TranscriptAPI failed with status ${status}`;
         
-        return res.status(response.status).json({
-          error: errorData.error || `TranscriptAPI failed with status ${response.status}`,
-          detail: errorData.detail || errorData.error
-        });
+        console.warn(`[YouTube Transcribe] Key TRANSCRIPT_API_KEY_${keyIndex} failed with status ${status}.`);
+        
+        // Telegram Bot Alert to Admin about key limit/failure:
+        const alertMsg = `⚠️ <b>YouTube Transcribe API Key Alert</b>\n\nTRANSCRIPT_API_KEY_${keyIndex} has encountered an error or reached its limit.\n\n<b>Status:</b> ${status}\n<b>Error details:</b>\n<code>${errText}</code>\n\n<i>Trying next available key...</i>`;
+        await sendAdminTelegramAlert(alertMsg);
+
+        lastError = { status: status, message: errText };
+        keyIndex++;
+        continue;
       }
 
       const data = await response.json();
@@ -367,12 +392,16 @@ app.post(/^\/(api\/)?youtube-transcribe$/, async (req, res) => {
 
     } catch (error: any) {
       console.error("[YouTube Transcribe] Error with current key:", error);
+      const errText = error.message || String(error);
+      const alertMsg = `⚠️ <b>YouTube Transcribe API Connection Error</b>\n\nTRANSCRIPT_API_KEY_${keyIndex} caused a connection exception.\n\n<b>Error:</b> <code>${errText}</code>\n\n<i>Trying next available key...</i>`;
+      await sendAdminTelegramAlert(alertMsg);
       lastError = error;
+      keyIndex++;
     }
   }
 
   return res.status(500).json({ 
-    error: lastError?.data?.error || lastError?.message || "All TRANSCRIPT_API_KEYs failed or reached quota." 
+    error: "API limit ပြည့်နေပါသဖြင့် အသုံးပြု၍မရနိုင်သေးပါ။ Admin ထံအကြောင်းကြားပေးထားပါတယ်ခင်ဗျာ" 
   });
 });
 
@@ -522,89 +551,128 @@ app.get(/^\/(api\/)?kc-tts\/proxy$/, async (req, res) => {
 });
 
 app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
-  const primaryBaseUrl = process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL || 'https://thantzinmin-my-tts-api.hf.space';
-  const secondaryBaseUrl = 'https://thantzinmin-kc-tts-api.hf.space';
+  const ttsPairs: { index: number, url: string, key: string }[] = [];
   
-  const baseUrlsToTry = [primaryBaseUrl];
-  if (primaryBaseUrl !== secondaryBaseUrl) baseUrlsToTry.push(secondaryBaseUrl);
-
-  const keys = getRotatingApiKey('TTS_API_KEY');
-  if (keys.length === 0 && process.env.TTS_API_KEY) keys.push(process.env.TTS_API_KEY);
-
-  let lastError: any;
-  
-  for (const ttsBaseUrl of baseUrlsToTry) {
-    for (const apiKey of keys) {
-      const pathsToTry = ['/generate', '/api/generate', ''];
-      
-      for (const path of pathsToTry) {
-          let apiUrl = ttsBaseUrl.endsWith('/') ? `${ttsBaseUrl}${path.replace(/^\//, '')}` : `${ttsBaseUrl}${path}`;
-          if (ttsBaseUrl.includes('/generate') && path !== '') continue;
-          
-          try {
-            console.log(`[KC TTS] Attempting generate at: ${apiUrl}`);
-            const response = await fetch(apiUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-API-Key": apiKey || ""
-              },
-              body: JSON.stringify(req.body)
-            });
-      
-            const responseText = await response.text();
-            
-            if (!response.ok) {
-              console.error(`[KC TTS] API returned ${response.status} at ${apiUrl}: ${responseText.slice(0, 100)}`);
-              if (response.status === 404) continue;
-              
-              if (response.status === 429 || response.status === 402) {
-                console.warn(`[KC TTS] Key failed with status ${response.status}. Trying next key...`);
-                lastError = { status: response.status, message: responseText };
-                break; // Try next apiKey or baseUrl
-              }
-              continue; // Try next path or baseUrl
-            }
-      
-            try {
-              const data = JSON.parse(responseText);
-              
-              const transformUrl = (rawUrl: string) => {
-                if (!rawUrl) return rawUrl;
-                let fullUrl = rawUrl;
-                if (!fullUrl.startsWith('http')) {
-                  const base = ttsBaseUrl.endsWith('/') ? ttsBaseUrl : `${ttsBaseUrl}/`;
-                  const cleanPath = fullUrl.startsWith('/') ? fullUrl.slice(1) : fullUrl;
-                  fullUrl = `${base}${cleanPath}`;
-                }
-                const encrypted = encryptUrl(fullUrl);
-                return `/api/kc-tts/proxy?u=${encrypted}`;
-              };
-
-              if (data.audio_url) data.audio_url = transformUrl(data.audio_url);
-              if (data.srt_url) data.srt_url = transformUrl(data.srt_url);
-      
-              return res.json(data);
-            } catch (parseError) {
-              if (responseText.includes('<!doctype') || responseText.includes('<html')) {
-                  console.warn(`[KC TTS] HTML response from ${apiUrl}, trying next path...`);
-                  continue;
-              }
-              console.error(`[KC TTS] Failed to parse JSON response from ${apiUrl}. First 200 chars: ${responseText.slice(0, 200)}`);
-              lastError = new Error(`Invalid JSON response from TTS API: ${responseText.slice(0, 100)}`);
-              continue;
-            }
-          } catch (error) {
-            console.error(`[KC TTS] Connection error at ${apiUrl}:`, error);
-            lastError = error;
-          }
-      }
-      if (res.headersSent) return;
+  // 1 to 5 Pairs
+  for (let i = 1; i <= 5; i++) {
+    const url = process.env[`KC_TTS_API_URL_${i}`] || process.env[`VITE_KC_TTS_API_URL_${i}`];
+    const key = process.env[`TTS_API_KEY_${i}`];
+    if (url || key) {
+      ttsPairs.push({
+        index: i,
+        url: url || process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL || 'https://thantzinmin-my-tts-api.hf.space',
+        key: key || process.env.TTS_API_KEY || ''
+      });
     }
   }
 
+  // Fallback / standard legacy if no explicit 1-5 pairs are configured
+  if (ttsPairs.length === 0) {
+    const primaryBaseUrl = process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL || 'https://thantzinmin-my-tts-api.hf.space';
+    const secondaryBaseUrl = 'https://thantzinmin-kc-tts-api.hf.space';
+    
+    const baseUrlsToTry = [primaryBaseUrl];
+    if (primaryBaseUrl !== secondaryBaseUrl) baseUrlsToTry.push(secondaryBaseUrl);
+
+    const keys = getRotatingApiKey('TTS_API_KEY');
+    if (keys.length === 0 && process.env.TTS_API_KEY) keys.push(process.env.TTS_API_KEY);
+    if (keys.length === 0) keys.push('');
+
+    let pairIdx = 1;
+    for (const bUrl of baseUrlsToTry) {
+      for (const k of keys) {
+        ttsPairs.push({
+          index: pairIdx++,
+          url: bUrl,
+          key: k
+        });
+      }
+    }
+  }
+
+  let lastError: any;
+  
+  for (const pair of ttsPairs) {
+    const pathsToTry = ['/generate', '/api/generate', ''];
+    let localErrorText = "";
+
+    for (const path of pathsToTry) {
+      let apiUrl = pair.url.endsWith('/') ? `${pair.url}${path.replace(/^\//, '')}` : `${pair.url}${path}`;
+      if (pair.url.includes('/generate') && path !== '') continue;
+
+      try {
+        console.log(`[KC TTS] Attempting generate at: ${apiUrl} (Pair ${pair.index})`);
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": pair.key || ""
+          },
+          body: JSON.stringify(req.body)
+        });
+
+        const responseText = await response.text();
+        
+        if (!response.ok) {
+          console.error(`[KC TTS] API returned ${response.status} at ${apiUrl}: ${responseText.slice(0, 100)}`);
+          localErrorText = `Status: ${response.status}, Response: ${responseText.slice(0, 100)}`;
+          if (response.status === 404) continue;
+          
+          if (response.status === 429 || response.status === 402) {
+            console.warn(`[KC TTS] Pair ${pair.index} failed with status ${response.status}. Trying next pair...`);
+            break; // Try next pair
+          }
+          continue; // Try next path
+        }
+
+        try {
+          const data = JSON.parse(responseText);
+          
+          const transformUrl = (rawUrl: string) => {
+            if (!rawUrl) return rawUrl;
+            let fullUrl = rawUrl;
+            if (!fullUrl.startsWith('http')) {
+              const base = pair.url.endsWith('/') ? pair.url : `${pair.url}/`;
+              const cleanPath = fullUrl.startsWith('/') ? fullUrl.slice(1) : fullUrl;
+              fullUrl = `${base}${cleanPath}`;
+            }
+            const encrypted = encryptUrl(fullUrl);
+            return `/api/kc-tts/proxy?u=${encrypted}`;
+          };
+
+          if (data.audio_url) data.audio_url = transformUrl(data.audio_url);
+          if (data.srt_url) data.srt_url = transformUrl(data.srt_url);
+
+          return res.json(data);
+        } catch (parseError) {
+          if (responseText.includes('<!doctype') || responseText.includes('<html')) {
+            console.warn(`[KC TTS] HTML response from ${apiUrl}, trying next path...`);
+            localErrorText = `HTML response from endpoint instead of JSON`;
+            continue;
+          }
+          console.error(`[KC TTS] Failed to parse JSON response from ${apiUrl}. First 200 chars: ${responseText.slice(0, 200)}`);
+          localErrorText = `Invalid JSON response: ${responseText.slice(0, 100)}`;
+          continue;
+        }
+      } catch (error: any) {
+        console.error(`[KC TTS] Connection error at ${apiUrl}:`, error);
+        localErrorText = error.message || String(error);
+      }
+    }
+
+    if (res.headersSent) return;
+
+    // If we are here, ALL paths for this pair failed.
+    // Notify admin via telegram bot about the failure of this pair
+    console.warn(`[KC TTS] Pair ${pair.index} completely failed. Notifying admin and trying next pair...`);
+    const alertMsg = `⚠️ <b>KC TTS API Error Alert</b>\n\nKC TTS API URL ${pair.index} သို့မဟုတ် TTS API Key ${pair.index} တွင် Error ဖြစ်ပေါ်နေပါသည်ခင်ဗျာ။\n\n<b>API URL:</b> <code>${pair.url}</code>\n<b>Error Message:</b>\n<code>${localErrorText}</code>\n\n<i>စနစ်သည် နောက်ထပ် URL/Key Pair တစ်ခုကို အလိုအလျောက် ပြောင်းလဲအသုံးပြုနေပါသည်...</i>`;
+    await sendAdminTelegramAlert(alertMsg);
+
+    lastError = new Error(localErrorText || `All paths for pair ${pair.index} failed`);
+  }
+
   return res.status(500).json({ 
-    error: lastError?.message || "All TTS API variants and keys failed or reached quota. Please check KC_TTS_API_URL." 
+    error: "Server error ဖြစ်ပေါ်နေပါသဖြင့် Admin ထံအကြောင်းကြားပေးထားပါတယ်" 
   });
 });
 
@@ -810,7 +878,7 @@ app.post(/^\/(api\/)?check-device$/, async (req, res) => {
   try {
     const { data: userData, error } = await supabase
       .from('users_accounts')
-      .select('device_id, expired_date, is_lifetime')
+      .select('device_id, expired_date, is_lifetime, link_transcribe_expiry, name, username, role, start_date')
       .eq('username', username)
       .single();
       
@@ -840,7 +908,18 @@ app.post(/^\/(api\/)?check-device$/, async (req, res) => {
       }
     }
     
-    return res.json({ valid: true });
+    return res.json({ 
+      valid: true,
+      user: {
+        name: userData.name,
+        username: userData.username,
+        role: userData.role,
+        startDate: userData.start_date,
+        expiredDate: userData.expired_date,
+        isLifetime: userData.is_lifetime,
+        linkTranscribeExpiry: userData.link_transcribe_expiry
+      }
+    });
   } catch (err) {
     console.error("Check Device Error:", err);
     return res.status(500).json({ error: "Failed to check device" });
@@ -848,7 +927,7 @@ app.post(/^\/(api\/)?check-device$/, async (req, res) => {
 });
 
 // Admin API Routes
-app.get("/api/admin/users", verifyAdmin, async (req, res) => {
+app.get("/api/mngr-sec/users", verifyAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
 
   try {
@@ -864,7 +943,7 @@ app.get("/api/admin/users", verifyAdmin, async (req, res) => {
   }
 });
 
-app.post("/api/admin/users", verifyAdmin, async (req, res) => {
+app.post("/api/mngr-sec/users", verifyAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
 
   try {
@@ -904,7 +983,7 @@ app.post("/api/admin/users", verifyAdmin, async (req, res) => {
   }
 });
 
-app.delete("/api/admin/users/:username", verifyAdmin, async (req, res) => {
+app.delete("/api/mngr-sec/users/:username", verifyAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
 
   try {
@@ -921,7 +1000,7 @@ app.delete("/api/admin/users/:username", verifyAdmin, async (req, res) => {
 });
 
 // Tutorials Admin API
-app.get("/api/admin/tutorials", verifyAdmin, async (req, res) => {
+app.get("/api/mngr-sec/tutorials", verifyAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
   try {
     const { data, error } = await supabase
@@ -935,7 +1014,7 @@ app.get("/api/admin/tutorials", verifyAdmin, async (req, res) => {
   }
 });
 
-app.post("/api/admin/tutorials", verifyAdmin, async (req, res) => {
+app.post("/api/mngr-sec/tutorials", verifyAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
   try {
     const tutorial = req.body;
@@ -975,7 +1054,7 @@ app.post("/api/admin/tutorials", verifyAdmin, async (req, res) => {
   }
 });
 
-app.delete("/api/admin/tutorials/:id", verifyAdmin, async (req, res) => {
+app.delete("/api/mngr-sec/tutorials/:id", verifyAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: "Supabase not configured" });
   try {
     const { error } = await supabase
