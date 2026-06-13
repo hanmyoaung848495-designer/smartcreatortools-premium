@@ -81,14 +81,14 @@ export const GeminiAudioPlayer: React.FC<GeminiAudioPlayerProps> = ({ audioUrl, 
   };
 
   return (
-    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
+    <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700/50 space-y-3">
       <audio ref={audioRef} src={audioUrl} onEnded={() => setIsPlaying(false)} />
       
       <div className="flex items-center gap-3">
         <button onClick={togglePlay} className="p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition">
           {isPlaying ? <Pause size={18} /> : <Play size={18} />}
         </button>
-        <span className="text-[10px] font-mono text-gray-500 w-9 text-center">{formatTime(progress)}</span>
+        <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 w-9 text-center">{formatTime(progress)}</span>
         <input 
           type="range" 
           min="0" 
@@ -97,17 +97,17 @@ export const GeminiAudioPlayer: React.FC<GeminiAudioPlayerProps> = ({ audioUrl, 
           onChange={handleSeek}
           className="flex-grow h-1 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
         />
-        <span className="text-[10px] font-mono text-gray-500 w-9 text-center">{formatTime(isNaN(duration) ? 0 : duration)}</span>
-        <button onClick={onDelete} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition flex-shrink-0">
+        <span className="text-[10px] font-mono text-gray-500 dark:text-gray-400 w-9 text-center">{formatTime(isNaN(duration) ? 0 : duration)}</span>
+        <button onClick={onDelete} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-full transition flex-shrink-0">
           <Trash2 size={18} />
         </button>
       </div>
 
-      <div className="flex justify-around items-center px-1 pt-1 border-t border-gray-100">
-        <button onClick={() => handleDownload('wav')} className="flex flex-col items-center gap-1 text-[10px] font-bold text-gray-500 hover:text-indigo-600">
+      <div className="flex justify-around items-center px-1 pt-1 border-t border-gray-100 dark:border-gray-700/50">
+        <button onClick={() => handleDownload('wav')} className="flex flex-col items-center gap-1 text-[10px] font-bold text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
           <Download size={12} /> WAV
         </button>
-        <button onClick={() => handleDownload('mp3')} className="flex flex-col items-center gap-1 text-[10px] font-bold text-gray-500 hover:text-indigo-600">
+        <button onClick={() => handleDownload('mp3')} className="flex flex-col items-center gap-1 text-[10px] font-bold text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400">
           <Download size={12} /> MP3
         </button>
       </div>

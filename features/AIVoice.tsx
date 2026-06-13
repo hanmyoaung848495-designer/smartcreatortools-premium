@@ -1627,8 +1627,8 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
 
       {/* History */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black text-gray-900 uppercase tracking-[0.2em] flex items-center gap-2">
-          <History size={16} className="text-indigo-600" /> Generation History
+        <h3 className="text-xs font-black text-gray-900 dark:text-gray-100 uppercase tracking-[0.2em] flex items-center gap-2">
+          <History size={16} className="text-indigo-600 dark:text-indigo-400" /> Generation History
         </h3>
         <div className="grid gap-4">
           {history.length === 0 ? (
@@ -1643,7 +1643,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
                     <Volume2 size={20} />
                   </div>
                   <div className="flex-grow min-w-0">
-                    <h4 className="text-sm font-bold text-gray-900 truncate">{item.title}</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">{item.title}</h4>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">
                         {item.mode === 'single' ? 'Single' : 'Multi'} {item.voices ? `• ${item.voices.join(', ')}` : ''}

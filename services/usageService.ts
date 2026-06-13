@@ -52,9 +52,24 @@ export const checkAndIncrementUsage = async (
   toolType: ToolType, 
   userId?: string | null,
   isLink?: boolean,
-  linkTranscribeExpiry?: number | null
+  linkTranscribeExpiry?: number | null,
+  accountExpiredDate?: number | null,
+  isLifetime?: boolean
 ): Promise<{ allowed: boolean; remaining: number; message?: string }> => {
   if (!supabase) return { allowed: true, remaining: 99 }; // Fallback if no DB
+
+  // Validate account expiry first for logged in users
+  if (userId && !isLifetime && accountExpiredDate) {
+    const now = Date.now();
+    const expiry = typeof accountExpiredDate === 'number' ? accountExpiredDate : new Date(accountExpiredDate).getTime();
+    if (now > expiry) {
+      return {
+        allowed: false,
+        remaining: 0,
+        message: 'လူကြီးမင်း၏ အကောင့်သက်တမ်းကုန်ဆုံးသွားပါပြီ။ ဆက်လက်အသုံးပြုရန် Admin ကို ဆက်သွယ်ပါ။'
+      };
+    }
+  }
 
   const identifier = userId || getDeviceId();
   const limits = await getUsageLimits();
@@ -81,8 +96,12 @@ export const checkAndIncrementUsage = async (
         if (expiry && now <= expiry) {
           limit = limits.transcribe_user_limit; // 3 or whatever admin set
         } else {
-          // Expired or No validity set: Fallback to 1 / day for Link Transcribe
-          limit = 1;
+          // Expired or No validity set: DO NOT allow any transcription, block completely
+          return {
+            allowed: false,
+            remaining: 0,
+            message: 'လူကြီးမင်း၏ YouTube Link Transcribe ပြုလုပ်ခွင့် သက်တမ်းကုန်ဆုံးသွားပါပြီ။'
+          };
         }
       } else {
         // Standard File Transcribe for premium users
