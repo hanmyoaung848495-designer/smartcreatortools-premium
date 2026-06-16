@@ -632,44 +632,38 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
     }
   }
 
-  const ttsPairs: { index: number, url: string, key: string }[] = [];
-  
-  // 1 to 5 Pairs
+  const ttsPairs: { label: string, url: string, key: string }[] = [];
+
+  // Main Pair (KC_TTS_API_URL & TTS_API_KEY)
+  const mainUrl = process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL;
+  if (mainUrl) {
+    ttsPairs.push({
+      label: 'Main',
+      url: mainUrl,
+      key: process.env.TTS_API_KEY || ''
+    });
+  }
+
+  // Pairs 1 to 5
   for (let i = 1; i <= 5; i++) {
     const url = process.env[`KC_TTS_API_URL_${i}`] || process.env[`VITE_KC_TTS_API_URL_${i}`];
     const key = process.env[`TTS_API_KEY_${i}`];
-    if (url || key) {
+    if (url) {
       ttsPairs.push({
-        index: i,
-        url: url || process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL || 'https://thantzinmin-my-tts-api.hf.space',
-        key: key || process.env.TTS_API_KEY || ''
+        label: `${i}`,
+        url: url,
+        key: key || ''
       });
     }
   }
 
-  // Fallback / standard legacy if no explicit 1-5 pairs are configured
   if (ttsPairs.length === 0) {
-    const primaryBaseUrl = process.env.KC_TTS_API_URL || process.env.VITE_KC_TTS_API_URL || 'https://thantzinmin-my-tts-api.hf.space';
-    const secondaryBaseUrl = 'https://thantzinmin-kc-tts-api.hf.space';
-    
-    const baseUrlsToTry = [primaryBaseUrl];
-    if (primaryBaseUrl !== secondaryBaseUrl) baseUrlsToTry.push(secondaryBaseUrl);
-
-    const keys = getRotatingApiKey('TTS_API_KEY');
-    if (keys.length === 0 && process.env.TTS_API_KEY) keys.push(process.env.TTS_API_KEY);
-    if (keys.length === 0) keys.push('');
-
-    let pairIdx = 1;
-    for (const bUrl of baseUrlsToTry) {
-      for (const k of keys) {
-        ttsPairs.push({
-          index: pairIdx++,
-          url: bUrl,
-          key: k
-        });
-      }
-    }
+    console.error("[KC TTS] No API URLs (KC_TTS_API_URL or KC_TTS_API_URL_1 to 5) configured in environment variables.");
+    return res.status(500).json({ error: "TTS Server information is not configured on the server." });
   }
+
+  // Diagnostic log to see exactly what pairs are loaded in memory and in what order
+  console.log("[KC TTS] Detected Active API Pairs:", ttsPairs.map(p => ({ label: p.label, url: p.url, hasKey: !!p.key })));
 
   let lastError: any;
   
@@ -682,7 +676,7 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
       if (pair.url.includes('/generate') && path !== '') continue;
 
       try {
-        console.log(`[KC TTS] Attempting generate at: ${apiUrl} (Pair ${pair.index})`);
+        console.log(`[KC TTS] Attempting generate at: ${apiUrl} (Pair ${pair.label})`);
         const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
@@ -700,7 +694,7 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
           if (response.status === 404) continue;
           
           if (response.status === 429 || response.status === 402) {
-            console.warn(`[KC TTS] Pair ${pair.index} failed with status ${response.status}. Trying next pair...`);
+            console.warn(`[KC TTS] Pair ${pair.label} failed with status ${response.status}. Trying next pair...`);
             break; // Try next pair
           }
           continue; // Try next path
@@ -745,11 +739,16 @@ app.post(/^\/(api\/)?kc-tts\/generate$/, async (req, res) => {
 
     // If we are here, ALL paths for this pair failed.
     // Notify admin via telegram bot about the failure of this pair
-    console.warn(`[KC TTS] Pair ${pair.index} completely failed. Notifying admin and trying next pair...`);
-    const alertMsg = `⚠️ <b>KC TTS API Error Alert</b>\n\nKC TTS API URL ${pair.index} သို့မဟုတ် TTS API Key ${pair.index} တွင် Error ဖြစ်ပေါ်နေပါသည်ခင်ဗျာ။\n\n<b>API URL:</b> <code>${pair.url}</code>\n<b>Error Message:</b>\n<code>${localErrorText}</code>\n\n<i>စနစ်သည် နောက်ထပ် URL/Key Pair တစ်ခုကို အလိုအလျောက် ပြောင်းလဲအသုံးပြုနေပါသည်...</i>`;
+    console.warn(`[KC TTS] Pair ${pair.label} completely failed. Notifying admin and trying next pair...`);
+    const isLastPair = pair === ttsPairs[ttsPairs.length - 1];
+    const nextStepMsg = isLastPair 
+      ? `<i>အတွဲအားလုံး စမ်းသပ်ပြီးသော်လည်း အလုပ်မလုပ်ပါသဖြင့် စနစ်ရပ်တန့်သွားပါပြီ။</i>`
+      : `<i>စနစ်သည် နောက်ထပ် URL/Key Pair တစ်ခုကို အလိုအလျောက် ပြောင်းလဲအသုံးပြုနေပါသည်...</i>`;
+    
+    const alertMsg = `⚠️ <b>KC TTS API Error Alert</b>\n\nKC TTS API URL (${pair.label}) သို့မဟုတ် TTS API Key (${pair.label}) တွင် Error ဖြစ်ပေါ်နေပါသည်ခင်ဗျာ။\n\n<b>API URL:</b> <code>${pair.url}</code>\n<b>Error Message:</b>\n<code>${localErrorText}</code>\n\n${nextStepMsg}`;
     await sendAdminTelegramAlert(alertMsg);
 
-    lastError = new Error(localErrorText || `All paths for pair ${pair.index} failed`);
+    lastError = new Error(localErrorText || `All paths for pair ${pair.label} failed`);
   }
 
   return res.status(500).json({ 
