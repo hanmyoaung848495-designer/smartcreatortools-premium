@@ -143,6 +143,123 @@ const App: React.FC = () => {
   const [confirmClear, setConfirmClear] = useState<{ isOpen: boolean, type: FeatureType | null }>({ isOpen: false, type: null });
   const [apiErrorModal, setApiErrorModal] = useState<{ isOpen: boolean, message: string } | null>(null);
 
+  const [userIpInfo, setUserIpInfo] = useState<{ ip: string; country_code: string; country_name?: string } | null>(null);
+
+  const getFlagEmoji = (countryCode: string) => {
+    if (!countryCode || countryCode === 'UN' || countryCode === 'LOCAL' || countryCode.toUpperCase() === 'UNKNOWN') return '🌐';
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map(char => 127397 + char.charCodeAt(0));
+    try {
+      return String.fromCodePoint(...codePoints);
+    } catch {
+      return '🌐';
+    }
+  };
+
+  useEffect(() => {
+    const fetchIpInfo = async () => {
+      // List of public, production-grade JSON geolocation APIs to try sequentially (client-side)
+      const endpoints = [
+        {
+          url: 'https://freeipapi.com/api/json',
+          parse: (data: any) => ({
+            ip: data.ipAddress,
+            country_code: data.countryCode,
+            country_name: data.countryName
+          })
+        },
+        {
+          url: 'https://api.db-ip.com/v2/free/self',
+          parse: (data: any) => ({
+            ip: data.ipAddress,
+            country_code: data.countryCode,
+            country_name: data.countryName
+          })
+        },
+        {
+          url: 'https://ipwho.is/',
+          parse: (data: any) => ({
+            ip: data.ip,
+            country_code: data.country_code,
+            country_name: data.country
+          })
+        },
+        {
+          url: 'https://ipapi.co/json/',
+          parse: (data: any) => ({
+            ip: data.ip,
+            country_code: data.country_code,
+            country_name: data.country_name
+          })
+        }
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(endpoint.url);
+          if (res.ok) {
+            const data = await res.json();
+            const parsed = endpoint.parse(data);
+            if (parsed.ip && parsed.country_code && parsed.country_code !== 'LOCAL' && parsed.country_code !== 'UNKNOWN') {
+              setUserIpInfo({
+                ip: parsed.ip,
+                country_code: parsed.country_code,
+                country_name: parsed.country_name
+              });
+              return; // Successfully retrieved and parsed! Exit early.
+            }
+          }
+        } catch (e) {
+          console.warn(`IP Fetching failed for ${endpoint.url}, trying next fallback...`, e);
+        }
+      }
+
+      // Fallback: Query our backend routing API which tries to identify proxies or socket address
+      try {
+        const res = await fetch('/api/get-client-ip');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ip && data.country_code && data.country_code !== 'UN' && data.country_code !== 'UNKNOWN') {
+            setUserIpInfo({
+              ip: data.ip,
+              country_code: data.country_code,
+              country_name: data.country_name
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Local backend IP client fallback query failed:", e);
+      }
+
+      // Hard fallback: Get simple IP string via ipify and assign Globe emoji representation
+      try {
+        const res = await fetch('https://api.ipify.org?format=json');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ip) {
+            setUserIpInfo({
+              ip: data.ip,
+              country_code: 'UN',
+              country_name: 'Unknown Location'
+            });
+          }
+        }
+      } catch (e) {
+        // Ultimate default
+        setUserIpInfo({
+          ip: 'Unknown',
+          country_code: 'UN',
+          country_name: 'Unknown Location'
+        });
+      }
+    };
+
+    fetchIpInfo();
+  }, []);
+
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
   const [showIOSInstallGuide, setShowIOSInstallGuide] = useState(false);
@@ -1121,38 +1238,38 @@ const App: React.FC = () => {
       </Modal>
 
       <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div className="flex flex-col items-start">
-              <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveFeature('home')}>
-                <div className="w-9 h-9 flex items-center justify-center rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700">
-                  {!logoError ? (
-                    <img 
-                      src="/logo.png" 
-                      alt="Logo" 
-                      className="w-full h-full object-cover"
-                      onError={() => setLogoError(true)}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-[#1877F2]">
-                      <span className="font-black text-sm text-[#FFD700] leading-none">$</span>
-                    </div>
-                  )}
-                </div>
-                <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFC107] via-[#0ea5e9] to-[#ec4899] bg-clip-text text-transparent hover:scale-105 transition-transform duration-300 select-none" style={{ fontFamily: 'A09_Khit, sans-serif', filter: 'drop-shadow(1px 0px 0px #000) drop-shadow(-1px 0px 0px #000) drop-shadow(0px 1px 0px #000) drop-shadow(0px -1px 0px #000)' }}>{settings.appLogo}</span>
+        <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
+          {/* LOGO AREA */}
+          <div className="flex-shrink-0">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveFeature('home')}>
+              <div className="w-9 h-9 flex items-center justify-center rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700">
+                {!logoError ? (
+                  <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    className="w-full h-full object-cover"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-[#1877F2]">
+                    <span className="font-black text-sm text-[#FFD700] leading-none">$</span>
+                  </div>
+                )}
               </div>
+              <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-[#FFC107] via-[#0ea5e9] to-[#ec4899] bg-clip-text text-transparent hover:scale-105 transition-transform duration-300 select-none" style={{ fontFamily: 'A09_Khit, sans-serif', filter: 'drop-shadow(1px 0px 0px #000) drop-shadow(-1px 0px 0px #000) drop-shadow(0px 1px 0px #000) drop-shadow(0px -1px 0px #000)' }}>{settings.appLogo}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 relative">
+          {/* MIDDLE: STATUS BUTTON (Centered task count) */}
+          <div className="flex-grow flex justify-center">
             {activeTasks.length > 0 && (
               <div className="relative">
                 <button 
                   onClick={() => setShowTasksDropdown(!showTasksDropdown)}
-                  className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-900/30 rounded-full border border-amber-100 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all"
+                  className="flex items-center flex-nowrap whitespace-nowrap gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-full border border-amber-100 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-all select-none"
                 >
-                  <span className={`w-2 h-2 bg-amber-500 rounded-full ${activeTasks.length > 0 ? 'animate-pulse' : ''}`}></span>
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-widest">{activeTasks.length} Task{activeTasks.length > 1 ? 's' : ''}</span>
+                  <span className={`w-2 h-2 flex-shrink-0 bg-amber-500 rounded-full ${activeTasks.length > 0 ? 'animate-pulse' : ''}`}></span>
+                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-widest whitespace-nowrap flex-shrink-0">{activeTasks.length} Task{activeTasks.length > 1 ? 's' : ''}</span>
                 </button>
 
                 <AnimatePresence>
@@ -1163,7 +1280,7 @@ const App: React.FC = () => {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50"
+                        className="fixed left-4 right-4 top-[54px] md:absolute md:left-1/2 md:-translate-x-1/2 md:right-auto md:top-auto md:w-80 mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden z-50 origin-top"
                       >
                         <div className="p-3 border-b border-gray-50 dark:border-gray-700/50 flex items-center justify-between">
                           <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active Tasks</h4>
@@ -1173,7 +1290,7 @@ const App: React.FC = () => {
                           {activeTasks.length > 0 ? (
                             <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
                               {activeTasks.map(task => (
-                                <div key={task.id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                <div key={task.id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors text-left">
                                   <div className="flex items-center justify-between mb-1.5">
                                     <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100 truncate pr-2">{task.title}</span>
                                     <button 
@@ -1206,7 +1323,26 @@ const App: React.FC = () => {
                 </AnimatePresence>
               </div>
             )}
-            <button onClick={toggleMenu} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-full transition-colors">
+          </div>
+
+          {/* RIGHT AREA: FLAG & MENU BUTTON */}
+          <div className="flex items-center gap-2 relative">
+            {userIpInfo && (
+              <div 
+                className="relative group cursor-pointer flex items-center justify-center p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors select-none"
+                title={`IP: ${userIpInfo.ip}\nCountry: ${userIpInfo.country_name || userIpInfo.country_code}`}
+              >
+                <span className="text-xl sm:text-2xl leading-none scale-100 hover:scale-110 active:scale-95 transition-transform duration-200">
+                  {getFlagEmoji(userIpInfo.country_code)}
+                </span>
+                {/* HTML Tooltip utilizing Tailwind group-hover */}
+                <div className="absolute right-0 top-full mt-2 hidden group-hover:block bg-gray-900 border border-gray-800 text-white text-[10px] font-bold py-1.5 px-2.5 rounded-lg whitespace-nowrap shadow-xl z-50 text-right">
+                  {userIpInfo.ip} ({userIpInfo.country_code})
+                </div>
+              </div>
+            )}
+
+            <button onClick={toggleMenu} className="p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-full transition-colors relative">
               <Menu size={24} className="text-gray-700 dark:text-gray-300" />
             </button>
           </div>

@@ -491,6 +491,47 @@ app.post(/^\/(api\/)?db-query$/, async (req, res) => {
   }
 });
 
+app.get(/^\/(api\/)?get-client-ip$/, async (req, res) => {
+  try {
+    const rawIp = req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || req.socket.remoteAddress;
+    let mainIp = "127.0.0.1";
+    if (typeof rawIp === 'string') {
+      mainIp = rawIp.split(',')[0].trim();
+    } else if (Array.isArray(rawIp)) {
+      mainIp = rawIp[0].trim();
+    }
+    if (mainIp.startsWith('::ffff:')) {
+      mainIp = mainIp.substring(7);
+    }
+    
+    let countryCode = "UN";
+    let countryName = "Unknown Location";
+    
+    // Check if the extracted IP is public and not local loopback
+    const isLocal = mainIp === '127.0.0.1' || mainIp === '::1' || mainIp.startsWith('10.') || mainIp.startsWith('192.168.') || mainIp.startsWith('172.');
+    
+    if (!isLocal && mainIp !== '') {
+      try {
+        const geoRes = await fetch(`https://ipapi.co/${mainIp}/json/`);
+        if (geoRes.ok) {
+          const geoData = await geoRes.json();
+          if (geoData.country_code) {
+            countryCode = geoData.country_code;
+            countryName = geoData.country_name || countryName;
+          }
+        }
+      } catch (e) {
+        console.warn("[get-client-ip] ipapi.co query failed:", e);
+      }
+    }
+    
+    return res.json({ ip: mainIp, country_code: countryCode, country_name: countryName });
+  } catch (err: any) {
+    console.error("[get-client-ip Error]", err);
+    return res.json({ ip: "127.0.0.1", country_code: "UN", country_name: "Unknown Location" });
+  }
+});
+
 app.get(/^\/(api\/)?kc-tts\/proxy$/, async (req, res) => {
   let url = "";
   const encryptedUrl = req.query.u as string;
@@ -579,13 +620,11 @@ function sanitizeKCText(str: string): string {
     .replace(/\[V2\]/g, '___TAG_V2___')
     .replace(/\[V3\]/g, '___TAG_V3___');
 
-  // 3. Strip all single quotes, double quotes, smart quotes, backticks, backslashes, parentheses, braces, and remaining square brackets
+  // 3. Strip ONLY single quotes, double quotes, smart quotes, backticks, and backslashes
   cleaned = cleaned
-    .replace(/[\"\"“”]/g, '')     // Double quotes
+    .replace(/[\"\"“”]/g, '')     // Double quotes & smart double quotes
     .replace(/[\'\'‘’`]/g, '')     // Single quotes & backticks & smart single quotes
-    .replace(/\\/g, '')          // Backslashes
-    .replace(/[\(\)\{\}]/g, '')  // Parentheses and braces
-    .replace(/[\[\]]/g, '');     // Any remaining square brackets
+    .replace(/\\/g, '');          // Backslashes
 
   // 4. Restore the protected speaker tags
   cleaned = cleaned
@@ -593,11 +632,9 @@ function sanitizeKCText(str: string): string {
     .replace(/___TAG_V2___/g, '[V2]')
     .replace(/___TAG_V3___/g, '[V3]');
 
-  // 5. Clean control characters and normalize whitespaces
+  // 5. Clean control characters except tab and newlines (\r, \n)
   cleaned = cleaned
-    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
-    .replace(/[\r\n]+/g, ' ')             // Convert newlines/carriage returns to spaces
-    .replace(/\s+/g, ' ')                 // Normalize multiple spaces
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '') // Remove all non-newline control characters
     .trim();
 
   return cleaned;
@@ -607,10 +644,9 @@ function sanitizeKCPronunciationRules(str: string): string {
   if (typeof str !== 'string') return str;
   
   let cleaned = str
-    .replace(/[\"\"“”]/g, '')       // Double quotes
+    .replace(/[\"\"“”]/g, '')       // Double quotes & smart double quotes
     .replace(/[\'\'‘’`]/g, '')       // Single quotes & backticks & smart single quotes
     .replace(/\\/g, '')            // Backslashes
-    .replace(/[\(\)\{\}\[\]]/g, '') // All brackets, braces, parentheses
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ''); // Control characters except newlines
 
   return cleaned;

@@ -106,13 +106,11 @@ const sanitizeKCText = (str: string): string => {
     .replace(/\[V2\]/g, '___TAG_V2___')
     .replace(/\[V3\]/g, '___TAG_V3___');
 
-  // 3. Strip all single quotes, double quotes, smart quotes, backticks, backslashes, parentheses, braces, and remaining square brackets
+  // 3. Strip ONLY single quotes, double quotes, smart quotes, backticks, and backslashes
   cleaned = cleaned
-    .replace(/[\"\"“”]/g, '')     // Double quotes
+    .replace(/[\"\"“”]/g, '')     // Double quotes & smart double quotes
     .replace(/[\'\'‘’`]/g, '')     // Single quotes & backticks & smart single quotes
-    .replace(/\\/g, '')          // Backslashes
-    .replace(/[\(\)\{\}]/g, '')  // Parentheses and braces
-    .replace(/[\[\]]/g, '');     // Any remaining square brackets
+    .replace(/\\/g, '');          // Backslashes
 
   // 4. Restore the protected speaker tags
   cleaned = cleaned
@@ -120,11 +118,9 @@ const sanitizeKCText = (str: string): string => {
     .replace(/___TAG_V2___/g, '[V2]')
     .replace(/___TAG_V3___/g, '[V3]');
 
-  // 5. Clean control characters and normalize whitespaces
+  // 5. Clean control characters except tab and newlines (\r, \n)
   cleaned = cleaned
-    .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove all control characters
-    .replace(/[\r\n]+/g, ' ')             // Convert newlines/carriage returns to spaces
-    .replace(/\s+/g, ' ')                 // Normalize multiple spaces
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '') // Remove all non-newline control characters
     .trim();
 
   return cleaned;
@@ -134,10 +130,9 @@ const sanitizeKCPronunciationRules = (str: string): string => {
   if (typeof str !== 'string') return str;
   
   let cleaned = str
-    .replace(/[\"\"“”]/g, '')       // Double quotes
+    .replace(/[\"\"“”]/g, '')       // Double quotes & smart double quotes
     .replace(/[\'\'‘’`]/g, '')       // Single quotes & backticks & smart single quotes
     .replace(/\\/g, '')            // Backslashes
-    .replace(/[\(\)\{\}\[\]]/g, '') // All brackets, braces, parentheses
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ''); // Control characters except newlines
 
   return cleaned;
@@ -258,15 +253,7 @@ const AIVoice: React.FC<AIVoiceProps> = ({ session, onStartTask, tasks, onBack, 
       setIsCheckingUsage(false);
     }
 
-    // Parse textarea into map
-    const customMap: Record<string, string> = {};
-    kcManualText.split('\n').filter(line => line.includes('=')).forEach(line => {
-        const [key, val] = line.split('=').map(s => s.trim());
-        if (key && val) customMap[key] = val;
-    });
-
     let processedText = sanitizeKCText(kcText);
-    processedText = applyPronunciation(processedText, customMap);
 
     const cleanedPronunciationRules = sanitizeKCPronunciationRules(kcManualText);
 
