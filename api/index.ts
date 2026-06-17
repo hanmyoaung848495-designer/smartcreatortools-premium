@@ -33,20 +33,38 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
+// Clean and sanitize string values against surrounding quotes and whitespace
+function cleanVal(val: any): string {
+  if (val === undefined || val === null) return "";
+  let s = val.toString().trim();
+  while ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 // Admin Verification Middleware
 const verifyAdmin = async (req: any, res: any, next: any) => {
-  const adminId = req.headers['x-admin-id'];
-  const adminPass = req.headers['x-admin-pass'];
+  const adminId = cleanVal(req.headers['x-admin-id']);
+  const adminPass = cleanVal(req.headers['x-admin-pass']);
 
   if (!adminId || !adminPass) {
     return res.status(401).json({ error: "Admin credentials required" });
   }
 
   // 1. Check System Admin Keys
+  // Base case without index
+  const baseKeyId = cleanVal(process.env.SYSTEM_KEY_ID);
+  const baseKeyPass = cleanVal(process.env.SYSTEM_KEY_PASS);
+  if (baseKeyId && baseKeyId === adminId && baseKeyPass === adminPass) {
+    return next();
+  }
+
+  // Indexed cases 1 to 10 (with formats _X_ID / _ID_X)
   let i = 1;
   while (i <= 10) {
-    const envId = process.env[`SYSTEM_KEY_${i}_ID`];
-    const envPass = process.env[`SYSTEM_KEY_${i}_PASS`];
+    const envId = cleanVal(process.env[`SYSTEM_KEY_${i}_ID`] || process.env[`SYSTEM_KEY_ID_${i}`]);
+    const envPass = cleanVal(process.env[`SYSTEM_KEY_${i}_PASS`] || process.env[`SYSTEM_KEY_PASS_${i}`]);
     if (envId && envId === adminId && envPass === adminPass) {
       return next(); 
     }
@@ -844,34 +862,50 @@ app.post("/api/feedback", async (req, res) => {
 });
 
 app.post(/^\/(api\/)?login$/, async (req, res) => {
-  const id = req.body.id?.toString().trim();
-  const password = req.body.password?.toString().trim();
-  const deviceId = req.body.deviceId?.toString().trim();
+  const id = cleanVal(req.body.id);
+  const password = cleanVal(req.body.password);
+  const deviceId = cleanVal(req.body.deviceId);
 
   if (!id || !password) {
     return res.status(400).json({ error: "ID and Password are required" });
   }
 
   // 1. Check fixed environment variables (Super Admin)
-  let i = 1;
   let isSystemAdmin = false;
   let foundSuperKey = "";
+
+  // Base case without index
+  const baseKeyId = cleanVal(process.env.SYSTEM_KEY_ID);
+  const baseKeyPass = cleanVal(process.env.SYSTEM_KEY_PASS);
+  const baseKeyValue = cleanVal(process.env.SYSTEM_KEY_VALUE || process.env.GEMINI_API_KEY);
   
-  while (i <= 10) {
-    const envId = process.env[`SYSTEM_KEY_${i}_ID`];
-    const envPass = process.env[`SYSTEM_KEY_${i}_PASS`];
-    const envValue = process.env[`SYSTEM_KEY_${i}_VALUE`] || process.env.GEMINI_API_KEY || "";
-    if (!envId) break;
-    if (envId === id && envPass === password) {
-      isSystemAdmin = true;
-      foundSuperKey = envValue;
-      break;
+  if (baseKeyId && baseKeyId === id && baseKeyPass === password) {
+    isSystemAdmin = true;
+    foundSuperKey = baseKeyValue;
+  } else {
+    // Indexed cases 1 to 10 (with formats _X_ID / _ID_X)
+    let i = 1;
+    while (i <= 10) {
+      const envId = cleanVal(process.env[`SYSTEM_KEY_${i}_ID`] || process.env[`SYSTEM_KEY_ID_${i}`]);
+      const envPass = cleanVal(process.env[`SYSTEM_KEY_${i}_PASS`] || process.env[`SYSTEM_KEY_PASS_${i}`]);
+      const envValue = cleanVal(process.env[`SYSTEM_KEY_${i}_VALUE`] || process.env[`SYSTEM_KEY_VALUE_${i}`] || process.env.GEMINI_API_KEY);
+      
+      if (envId && envId === id && envPass === password) {
+        isSystemAdmin = true;
+        foundSuperKey = envValue;
+        break;
+      }
+      i++;
     }
-    i++;
   }
 
   if (isSystemAdmin) {
-    return res.json({ apiKey: foundSuperKey, role: 'admin' });
+    const systemGeminiKeys = getRotatingApiKey('GEMINI_API_KEY');
+    return res.json({ 
+      apiKey: foundSuperKey || systemGeminiKeys[0] || '',
+      allApiKeys: systemGeminiKeys,
+      role: 'admin' 
+    });
   }
 
   // 2. Check Supabase for user account

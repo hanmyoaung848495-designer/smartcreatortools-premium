@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, Minus } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, Minus, GripHorizontal } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const DEFAULT_PLAYLIST = [
@@ -33,6 +33,117 @@ const MusicPlayer: React.FC = () => {
   const [showControls, setShowControls] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const playerRef = useRef<any>(null);
+
+  // Drag states for floating Picture-in-Picture player box
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [hasDragged, setHasDragged] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const initialPosRef = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Left click only
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) return;
+
+    const dragContainer = target.closest('.draggable-player') as HTMLElement;
+    if (!dragContainer) return;
+
+    setIsDragging(true);
+    const rect = dragContainer.getBoundingClientRect();
+    const currentX = rect.left;
+    const currentY = rect.top;
+
+    setPosition({ x: currentX, y: currentY });
+    setHasDragged(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    initialPosRef.current = { x: currentX, y: currentY };
+    e.preventDefault();
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) return;
+
+    const dragContainer = target.closest('.draggable-player') as HTMLElement;
+    if (!dragContainer) return;
+
+    setIsDragging(true);
+    const rect = dragContainer.getBoundingClientRect();
+    const currentX = rect.left;
+    const currentY = rect.top;
+
+    setPosition({ x: currentX, y: currentY });
+    setHasDragged(true);
+    const touch = e.touches[0];
+    dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+    initialPosRef.current = { x: currentX, y: currentY };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+
+      let newX = initialPosRef.current.x + dx;
+      let newY = initialPosRef.current.y + dy;
+
+      const elementWidth = Math.min(420, window.innerWidth - 16);
+      const elementHeight = (elementWidth * 9) / 16;
+
+      const minX = 8;
+      const maxX = window.innerWidth - elementWidth - 8;
+      const minY = 8;
+      const maxY = window.innerHeight - elementHeight - 8;
+
+      newX = Math.max(minX, Math.min(newX, maxX));
+      newY = Math.max(minY, Math.min(newY, maxY));
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - dragStartRef.current.x;
+      const dy = touch.clientY - dragStartRef.current.y;
+
+      let newX = initialPosRef.current.x + dx;
+      let newY = initialPosRef.current.y + dy;
+
+      const elementWidth = Math.min(340, window.innerWidth - 16);
+      const elementHeight = (elementWidth * 9) / 16;
+
+      const minX = 8;
+      const maxX = window.innerWidth - elementWidth - 8;
+      const minY = 8;
+      const maxY = window.innerHeight - elementHeight - 8;
+
+      newX = Math.max(minX, Math.min(newX, maxX));
+      newY = Math.max(minY, Math.min(newY, maxY));
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging]);
 
   useEffect(() => {
     const fetchPlaylist = async () => {
@@ -140,6 +251,8 @@ const MusicPlayer: React.FC = () => {
       setShowVideo(false);
       setIsReady(false);
       setCurrentIndex(0);
+      setHasDragged(false);
+      setPosition({ x: 0, y: 0 });
       if (playerRef.current) {
         if (playerRef.current.destroy) playerRef.current.destroy();
         playerRef.current = null;
@@ -180,12 +293,6 @@ const MusicPlayer: React.FC = () => {
             <button onClick={nextTrack} className="p-1 hover:bg-gray-100 rounded-full text-gray-600">
               <SkipForward size={14} fill="currentColor" />
             </button>
-            <button 
-              onClick={() => setShowVideo(!showVideo)} 
-              className={`p-1 rounded-full transition-colors ${showVideo ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:bg-gray-100'}`}
-            >
-              <ChevronDown size={14} className={showVideo ? 'rotate-180' : ''} />
-            </button>
           </div>
         )}
       </div>
@@ -196,23 +303,52 @@ const MusicPlayer: React.FC = () => {
         </div>
       )}
 
-      {/* Video Container */}
+      {/* Draggable PIP Video Container */}
       <div 
-        className={`fixed z-[100] transition-all duration-700 ease-in-out ${
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        style={hasDragged ? { 
+          left: `${position.x}px`, 
+          top: `${position.y}px`
+        } : undefined}
+        className={`fixed z-[100] w-[90vw] max-w-[340px] md:max-w-[420px] aspect-video bg-black rounded-2xl shadow-2xl border-4 border-slate-200 dark:border-gray-800 overflow-hidden flex flex-col group select-none draggable-player cursor-grab active:cursor-grabbing ${
+          !hasDragged ? 'top-24 left-1/2 -translate-x-1/2' : ''
+        } ${
+          isDragging ? 'shadow-indigo-500/30 scale-[1.02]' : ''
+        } ${
           showVideo 
-            ? 'top-24 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl aspect-video opacity-100 scale-100' 
-            : 'top-24 left-1/2 -translate-x-1/2 w-0 h-0 opacity-0 scale-0 pointer-events-none'
-        }`}
+            ? 'opacity-100 scale-100 pointer-events-auto' 
+            : 'opacity-0 scale-0 w-0 h-0 pointer-events-none'
+        } transition-transform duration-100`}
       >
-        <div className="relative w-full h-full bg-black rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-4 border-white">
+        {/* Header Drag Handle */}
+        <div 
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-black/90 to-transparent flex items-center justify-between px-3 z-10 cursor-grab active:cursor-grabbing text-white"
+          title="Drag and move playlist player box"
+        >
+          <div className="flex items-center gap-1.5 opacity-90 hover:opacity-100">
+            <GripHorizontal size={14} className="text-gray-300" />
+            <span className="text-[10px] font-extrabold tracking-wider uppercase font-mono bg-black/60 px-2 py-0.5 rounded backdrop-blur-sm">
+              📺 Music Video ({currentIndex + 1}/{playlist.length})
+            </span>
+          </div>
+          
           <button 
-            onClick={() => setShowVideo(false)}
-            className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlayer();
+            }}
+            className="p-1 hover:bg-white/20 rounded-full transition-colors cursor-pointer text-white"
+            title="Deactivate Player"
           >
-            <Minus size={20} />
+            <Minus size={16} />
           </button>
-          <div id="youtube-player" className="w-full h-full"></div>
         </div>
+
+        <div id="youtube-player" className="w-full h-full"></div>
       </div>
     </div>
   );

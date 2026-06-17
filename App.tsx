@@ -23,7 +23,7 @@ import LandingScreen from './components/LandingScreen';
 import PersistentResults from './components/PersistentResults';
 import { FeedbackModal } from './components/FeedbackModal';
 
-import { Menu, X, BookOpen, User, Home as HomeIcon, Zap, Send, Sun, Moon, CheckCircle, XCircle, Eye, EyeOff, Shield, FileText, Download, Crown } from 'lucide-react';
+import { Menu, X, BookOpen, User, Home as HomeIcon, Zap, Send, Sun, Moon, CheckCircle, XCircle, Eye, EyeOff, Shield, FileText, Download, Crown, RefreshCw, Music } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const App: React.FC = () => {
@@ -35,6 +35,24 @@ const App: React.FC = () => {
     if (saved) return saved === 'dark';
     return window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
   });
+  const [showPlaylist, setShowPlaylist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('showPlaylist');
+      return saved !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleTogglePlaylist = (val: boolean) => {
+    setShowPlaylist(val);
+    try {
+      localStorage.setItem('showPlaylist', String(val));
+    } catch (e) {
+      console.warn("localStorage item write failed:", e);
+    }
+    toast.success(val ? "Playlist ကို ဖွင့်လိုက်ပါပြီ" : "Playlist ကို ပိတ်လိုက်ပါပြီ", { duration: 1500 });
+  };
   const [settings] = useState<AdminSettings>({
     ...DEFAULT_ADMIN_SETTINGS,
     welcomeMessage: "သူငယ်ချင်းတို့မင်္ဂလာပါ!",
@@ -144,6 +162,7 @@ const App: React.FC = () => {
   const [apiErrorModal, setApiErrorModal] = useState<{ isOpen: boolean, message: string } | null>(null);
 
   const [userIpInfo, setUserIpInfo] = useState<{ ip: string; country_code: string; country_name?: string } | null>(null);
+  const [isRefreshingIp, setIsRefreshingIp] = useState(false);
 
   const getFlagEmoji = (countryCode: string) => {
     if (!countryCode || countryCode === 'UN' || countryCode === 'LOCAL' || countryCode.toUpperCase() === 'UNKNOWN') return '🌐';
@@ -158,105 +177,123 @@ const App: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchIpInfo = async () => {
-      // List of public, production-grade JSON geolocation APIs to try sequentially (client-side)
-      const endpoints = [
-        {
-          url: 'https://freeipapi.com/api/json',
-          parse: (data: any) => ({
-            ip: data.ipAddress,
-            country_code: data.countryCode,
-            country_name: data.countryName
-          })
-        },
-        {
-          url: 'https://api.db-ip.com/v2/free/self',
-          parse: (data: any) => ({
-            ip: data.ipAddress,
-            country_code: data.countryCode,
-            country_name: data.countryName
-          })
-        },
-        {
-          url: 'https://ipwho.is/',
-          parse: (data: any) => ({
-            ip: data.ip,
-            country_code: data.country_code,
-            country_name: data.country
-          })
-        },
-        {
-          url: 'https://ipapi.co/json/',
-          parse: (data: any) => ({
-            ip: data.ip,
-            country_code: data.country_code,
-            country_name: data.country_name
-          })
-        }
-      ];
-
-      for (const endpoint of endpoints) {
-        try {
-          const res = await fetch(endpoint.url);
-          if (res.ok) {
-            const data = await res.json();
-            const parsed = endpoint.parse(data);
-            if (parsed.ip && parsed.country_code && parsed.country_code !== 'LOCAL' && parsed.country_code !== 'UNKNOWN') {
-              setUserIpInfo({
-                ip: parsed.ip,
-                country_code: parsed.country_code,
-                country_name: parsed.country_name
-              });
-              return; // Successfully retrieved and parsed! Exit early.
-            }
-          }
-        } catch (e) {
-          console.warn(`IP Fetching failed for ${endpoint.url}, trying next fallback...`, e);
-        }
-      }
-
-      // Fallback: Query our backend routing API which tries to identify proxies or socket address
-      try {
-        const res = await fetch('/api/get-client-ip');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ip && data.country_code && data.country_code !== 'UN' && data.country_code !== 'UNKNOWN') {
-            setUserIpInfo({
-              ip: data.ip,
-              country_code: data.country_code,
-              country_name: data.country_name
-            });
-            return;
-          }
-        }
-      } catch (e) {
-        console.error("Local backend IP client fallback query failed:", e);
-      }
-
-      // Hard fallback: Get simple IP string via ipify and assign Globe emoji representation
-      try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.ip) {
-            setUserIpInfo({
-              ip: data.ip,
-              country_code: 'UN',
-              country_name: 'Unknown Location'
-            });
-          }
-        }
-      } catch (e) {
-        // Ultimate default
-        setUserIpInfo({
-          ip: 'Unknown',
-          country_code: 'UN',
-          country_name: 'Unknown Location'
-        });
+  const fetchIpInfo = async () => {
+    setIsRefreshingIp(true);
+    const cacheBuster = `_cb=${Date.now()}`;
+    const getBustedUrl = (url: string) => url.includes('?') ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+    const fetchOptions = {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       }
     };
 
+    // List of public, production-grade JSON geolocation APIs to try sequentially (client-side)
+    const endpoints = [
+      {
+        url: 'https://freeipapi.com/api/json',
+        parse: (data: any) => ({
+          ip: data.ipAddress,
+          country_code: data.countryCode,
+          country_name: data.countryName
+        })
+      },
+      {
+        url: 'https://api.db-ip.com/v2/free/self',
+        parse: (data: any) => ({
+          ip: data.ipAddress,
+          country_code: data.countryCode,
+          country_name: data.countryName
+        })
+      },
+      {
+        url: 'https://ipwho.is/',
+        parse: (data: any) => ({
+          ip: data.ip,
+          country_code: data.country_code,
+          country_name: data.country
+        })
+      },
+      {
+        url: 'https://ipapi.co/json/',
+        parse: (data: any) => ({
+          ip: data.ip,
+          country_code: data.country_code,
+          country_name: data.country_name
+        })
+      }
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(getBustedUrl(endpoint.url), fetchOptions);
+        if (res.ok) {
+          const data = await res.json();
+          const parsed = endpoint.parse(data);
+          if (parsed.ip && parsed.country_code && parsed.country_code !== 'LOCAL' && parsed.country_code !== 'UNKNOWN') {
+            setUserIpInfo({
+              ip: parsed.ip,
+              country_code: parsed.country_code,
+              country_name: parsed.country_name
+            });
+            setIsRefreshingIp(false);
+            return; // Successfully retrieved and parsed! Exit early.
+          }
+        }
+      } catch (e) {
+        console.warn(`IP Fetching failed for ${endpoint.url}, trying next fallback...`, e);
+      }
+    }
+
+    // Fallback: Query our backend routing API which tries to identify proxies or socket address
+    try {
+      const res = await fetch(getBustedUrl('/api/get-client-ip'), fetchOptions);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ip && data.country_code && data.country_code !== 'UN' && data.country_code !== 'UNKNOWN') {
+          setUserIpInfo({
+            ip: data.ip,
+            country_code: data.country_code,
+            country_name: data.country_name
+          });
+          setIsRefreshingIp(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Local backend IP client fallback query failed:", e);
+    }
+
+    // Hard fallback: Get simple IP string via ipify and assign Globe emoji representation
+    try {
+      const res = await fetch(getBustedUrl('https://api.ipify.org?format=json'), fetchOptions);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ip) {
+          setUserIpInfo({
+            ip: data.ip,
+            country_code: 'UN',
+            country_name: 'Unknown Location'
+          });
+          setIsRefreshingIp(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Hard fallback IP retrieval failure:", e);
+    }
+
+    // Ultimate default if all fail
+    setUserIpInfo(prev => prev || {
+      ip: 'Unknown',
+      country_code: 'UN',
+      country_name: 'Unknown Location'
+    });
+    setIsRefreshingIp(false);
+  };
+
+  useEffect(() => {
     fetchIpInfo();
   }, []);
 
@@ -863,6 +900,30 @@ const App: React.FC = () => {
               >
                 <Send size={18} className="text-sky-500" /> Contact
               </a>
+
+              {/* Playlist Switch */}
+              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 mt-1">
+                <div className="flex items-center gap-3">
+                  <Music size={18} className="text-pink-500" />
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold text-sm text-gray-800 dark:text-gray-200">Playlist</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">Header အောက်တွင် ပြသရန်</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePlaylist(!showPlaylist)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    showPlaylist ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      showPlaylist ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
               {showInstallBtn && (
                 <button 
                   onClick={handleInstallClick}
@@ -1330,14 +1391,44 @@ const App: React.FC = () => {
             {userIpInfo && (
               <div 
                 className="relative group cursor-pointer flex items-center justify-center p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors select-none"
-                title={`IP: ${userIpInfo.ip}\nCountry: ${userIpInfo.country_name || userIpInfo.country_code}`}
               >
                 <span className="text-xl sm:text-2xl leading-none scale-100 hover:scale-110 active:scale-95 transition-transform duration-200">
                   {getFlagEmoji(userIpInfo.country_code)}
                 </span>
-                {/* HTML Tooltip utilizing Tailwind group-hover */}
-                <div className="absolute right-0 top-full mt-2 hidden group-hover:block bg-gray-900 border border-gray-800 text-white text-[10px] font-bold py-1.5 px-2.5 rounded-lg whitespace-nowrap shadow-xl z-50 text-right">
-                  {userIpInfo.ip} ({userIpInfo.country_code})
+                
+                {/* HTML Tooltip utilizing Tailwind group-hover with an active bridge */}
+                <div className="absolute right-0 top-full pt-2 hidden group-hover:block z-50">
+                  <div className="bg-gray-950 border border-gray-800 text-white rounded-xl shadow-2xl p-3 min-w-[210px] text-left relative flex flex-col gap-2">
+                    {/* Hover Bridge to keep popover open when transitioning cursor from trigger to tooltip */}
+                    <div className="absolute -top-2 left-0 right-0 h-2 bg-transparent"></div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-[9px] uppercase font-black tracking-widest text-gray-500">Your Connection</div>
+                      <div className="font-mono text-xs text-blue-400 select-all font-bold">{userIpInfo.ip}</div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-[9px] uppercase font-black tracking-widest text-gray-500">Location</div>
+                      <div className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
+                        <span className="text-sm leading-none">{getFlagEmoji(userIpInfo.country_code)}</span>
+                        <span>{userIpInfo.country_name || userIpInfo.country_code}</span>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-800 my-0.5" />
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fetchIpInfo();
+                      }}
+                      disabled={isRefreshingIp}
+                      className="w-full flex items-center justify-center gap-2 py-1.5 px-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-900 disabled:text-gray-600 text-white text-[10px] font-black uppercase tracking-wider rounded-lg transition-all active:scale-95 cursor-pointer disabled:pointer-events-none"
+                    >
+                      <RefreshCw size={11} className={`${isRefreshingIp ? 'animate-spin text-blue-400' : 'text-white'}`} />
+                      <span>{isRefreshingIp ? 'Refreshing...' : '🔄 Refresh IP'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1349,11 +1440,28 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 w-full relative h-0">
-        <div className="absolute top-2 left-4 z-40">
-          <MusicPlayer />
+      {/* Promotional Marquee Banner */}
+      <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-100 dark:border-amber-900/30 py-2.5 overflow-hidden select-none">
+        <div className="max-w-7xl mx-auto px-4 flex items-center gap-3">
+          <span className="text-[9px] font-black uppercase tracking-widest bg-amber-500 text-white dark:bg-amber-600 px-2 py-0.5 rounded flex-shrink-0 animate-pulse select-none">
+            Promo
+          </span>
+          <div 
+            dangerouslySetInnerHTML={{
+              __html: `<marquee scrollamount="4" style="color: inherit; font-size: inherit; font-weight: inherit;">🎉 အထူးအစီအစဉ်! ဇွန်လကုန်အထိ Premium User အသစ်တစ်ဦးကို ဖိတ်ခေါ်ပြီး သင့်အကောင့်သက်တမ်း ၇ ရက် အခမဲ့ တိုးယူလိုက်ပါ။ 🎁</marquee>`
+            }}
+            className="text-xs sm:text-sm font-bold text-amber-800 dark:text-amber-200 leading-none flex-grow"
+          />
         </div>
       </div>
+
+      {showPlaylist && (
+        <div className="max-w-7xl mx-auto px-4 w-full relative h-0">
+          <div className="absolute top-2 left-4 z-40">
+            <MusicPlayer />
+          </div>
+        </div>
+      )}
 
       <main className={`flex-grow w-full ${activeFeature === 'teleprompter' ? 'max-w-none px-0 py-0' : 'max-w-7xl mx-auto px-4 py-8'}`}>
         {renderActiveFeature()}
