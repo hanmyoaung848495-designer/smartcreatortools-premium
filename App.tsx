@@ -160,6 +160,8 @@ const App: React.FC = () => {
   const [pendingDownload, setPendingDownload] = useState<StoredResult | null>(null);
   const [confirmClear, setConfirmClear] = useState<{ isOpen: boolean, type: FeatureType | null }>({ isOpen: false, type: null });
   const [apiErrorModal, setApiErrorModal] = useState<{ isOpen: boolean, message: string } | null>(null);
+  const [showUpdateRedirectModal, setShowUpdateRedirectModal] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [userIpInfo, setUserIpInfo] = useState<{ ip: string; country_code: string; country_name?: string } | null>(null);
   const [isRefreshingIp, setIsRefreshingIp] = useState(false);
@@ -354,6 +356,31 @@ const App: React.FC = () => {
       return newSession;
     });
   }, []);
+
+  const handleNewSiteRedirect = async () => {
+    setIsRedirecting(true);
+    try {
+      const { getDeviceId } = await import('./lib/device');
+      const deviceId = getDeviceId();
+      if (session && session.user?.username) {
+        await fetch('/api/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: session.user.username, deviceId })
+        });
+      }
+    } catch (err) {
+      console.error('Logout error during redirect:', err);
+    }
+    // Clear localStorage and session
+    try {
+      localStorage.removeItem('smart_creator_session');
+    } catch (e) {
+      console.error(e);
+    }
+    handleUpdateSession({ useCustomKey: true, role: 'free', systemApiKey: undefined, user: undefined, adminAuth: undefined });
+    window.location.href = 'https://smartcreatortool-premium.vercel.app';
+  };
 
   const handleSystemLogin = async () => {
     try {
@@ -1084,6 +1111,50 @@ const App: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {showUpdateRedirectModal && (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/70 backdrop-blur-lg animate-in fade-in duration-300">
+          <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-sm border border-amber-200 dark:border-amber-950/40 p-6 text-center space-y-6 animate-in zoom-in-95 duration-300">
+            {/* Header / Pulse icon */}
+            <div className="relative mx-auto w-20 h-20 bg-amber-50 dark:bg-amber-950/30 rounded-full flex items-center justify-center text-amber-500 shadow-xl shadow-amber-100 dark:shadow-none">
+              <span className="absolute inset-0 rounded-full bg-amber-400 opacity-20 animate-ping" />
+              <Crown size={38} className="animate-pulse" />
+            </div>
+
+            {/* Title & Body */}
+            <div className="space-y-3">
+              <h2 className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+                ဝက်ဆိုဒ်ပြောင်းလဲခြင်း အသိပေးချက်
+              </h2>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300 leading-relaxed bg-amber-50 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                Update လုပ်ထားသော ဝက်ဆိုဒ်အသစ်တွင် အသုံးပြုပေးပါရန်။
+              </p>
+              <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 leading-relaxed px-2">
+                (ဝက်ဆိုဒ်အသစ်သို့ သွားရန်ခလုပ် နှိပ်လိုက်ပါက ယခုဝက်ဆိုဒ်ဟောင်းမှ အလိုအလျောက် Logout ထွက်ရှိသွားပြီး ဝက်ဆိုဒ်အသစ်သို့ ရောက်ရှိသွားမည်ဖြစ်သည်)
+              </p>
+            </div>
+
+            {/* Redirect button */}
+            <button
+              onClick={handleNewSiteRedirect}
+              disabled={isRedirecting}
+              className="w-full py-4 px-6 bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 text-white rounded-2xl font-bold text-sm shadow-xl hover:opacity-95 transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isRedirecting ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  <span>ဝက်ဆိုဒ်အသစ်သို့ ကူးပြောင်းနေပါသည်...</span>
+                </>
+              ) : (
+                <>
+                  <Crown size={18} />
+                  <span>Website အသစ်သို့သွားရန်</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {apiErrorModal && apiErrorModal.isOpen && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
